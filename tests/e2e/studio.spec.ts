@@ -15,7 +15,7 @@ test("create project", async ({ page }) => {
   const name = uniqueName("Playwright Project");
 
   await page.goto("/projects");
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("main").getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill(name);
   await page.getByLabel("One-line summary").fill("Created by the Sprint 2 E2E suite.");
   await page.getByLabel("Next best action").fill("Confirm the generated project appears.");
@@ -29,7 +29,7 @@ test("edit project", async ({ page }) => {
   const updatedName = `${name} Updated`;
 
   await page.goto("/projects");
-  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("main").getByRole("button", { name: "New project" }).click();
   await page.getByLabel("Project name").fill(name);
   await page.getByLabel("One-line summary").fill("Ready to be edited.");
   await page.getByRole("button", { name: "Create project" }).click();
@@ -66,7 +66,7 @@ test("create prompt", async ({ page }) => {
   await form.getByRole("button", { name: "Create prompt" }).click();
 
   await expect(page.getByText(title)).toBeVisible();
-  await expect(page.getByText("Review {{feature}} for risks")).toBeVisible();
+  await expect(page.locator("pre", { hasText: "Review {{feature}} for risks" })).toBeVisible();
 });
 
 test("create build queue task", async ({ page }) => {
@@ -81,5 +81,5 @@ test("create build queue task", async ({ page }) => {
   await form.getByRole("button", { name: "Create task" }).click();
 
   await expect(page.getByText(title)).toBeVisible();
-  await expect(page.getByText("Ready").first()).toBeVisible();
+  await expect(page.locator("div", { hasText: /^Ready$/ }).first()).toBeVisible();
 });
