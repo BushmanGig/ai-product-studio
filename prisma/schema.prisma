@@ -1,0 +1,96 @@
+// AI Product Studio schema.
+//
+// Local development uses SQLite for zero-config setup. To migrate to
+// Supabase/Postgres later, change `provider` to "postgresql" and point
+// DATABASE_URL at your Postgres connection string (see .env.example).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  summary     String
+  stage       String   @default("Idea")
+  priority    String   @default("Medium")
+  progress    Int      @default(0)
+  nextAction  String   @default("")
+  color       String   @default("#6366f1")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  activities  Activity[]
+  buildTasks  BuildTask[]
+  qaItems     QaItem[]
+  launchItems LaunchItem[]
+  reviews     Review[]
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  type      String   @default("update")
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model BuildTask {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  status    String   @default("Queued")
+  priority  String   @default("Medium")
+  estimate  String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model QaItem {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category  String   @default("General")
+  label     String
+  checked   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model LaunchItem {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  channel   String
+  title     String
+  status    String   @default("Planned")
+  dueLabel  String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title     String
+  kind      String   @default("Design")
+  status    String   @default("Awaiting review")
+  reviewer  String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model Prompt {
+  id        String   @id @default(cuid())
+  title     String
+  category  String   @default("General")
+  stage     String   @default("Idea")
+  body      String
+  tags      String   @default("")
+  createdAt DateTime @default(now())
+}
