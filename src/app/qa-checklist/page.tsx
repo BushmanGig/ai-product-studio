@@ -12,9 +12,9 @@ export const dynamic = "force-dynamic";
 
 export default async function QaChecklistPage() {
   const projects = await prisma.project.findMany({
-    where: { qaItems: { some: {} } },
+    where: { archivedAt: null },
     orderBy: { updatedAt: "desc" },
-    include: { qaItems: { orderBy: { createdAt: "asc" } } },
+    include: { qaItems: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } } },
   });
 
   const groups: QaGroup[] = projects.map((p) => ({
@@ -23,6 +23,7 @@ export default async function QaChecklistPage() {
     color: p.color,
     items: p.qaItems.map((q) => ({
       id: q.id,
+      projectId: p.id,
       label: q.label,
       category: q.category,
       checked: q.checked,
@@ -36,14 +37,17 @@ export default async function QaChecklistPage() {
         description="Verify quality before launch. Tick items off — progress saves instantly."
       />
 
-      {groups.length === 0 ? (
+      {projects.length === 0 ? (
         <EmptyState
           icon={ShieldCheck}
           title="No QA items yet"
-          description="Add QA items to a project to build a pre-launch checklist."
+          description="Create a project to build a pre-launch checklist."
         />
       ) : (
-        <QaChecklistClient groups={groups} />
+        <QaChecklistClient
+          groups={groups}
+          projects={projects.map((project) => ({ id: project.id, name: project.name }))}
+        />
       )}
     </PageShell>
   );

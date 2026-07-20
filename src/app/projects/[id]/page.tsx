@@ -10,6 +10,7 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { timeAgo } from "@/lib/utils";
+import { PRIORITIES, PROJECT_STATUSES, STAGES } from "@/lib/constants";
 import { PageShell } from "@/components/page-header";
 import { Pipeline } from "@/components/pipeline";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +18,11 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { PriorityBadge, StatusBadge } from "@/components/ui/status";
 import { AdvanceStageButton } from "@/components/advance-stage-button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { archiveProject, deleteProject, updateProject } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +34,9 @@ export default async function ProjectDetailPage({
   const project = await prisma.project.findUnique({
     where: { slug: params.id },
     include: {
-      buildTasks: { orderBy: { createdAt: "asc" } },
-      qaItems: { orderBy: { createdAt: "asc" } },
-      launchItems: { orderBy: { createdAt: "asc" } },
+      buildTasks: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } },
+      qaItems: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } },
+      launchItems: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } },
       activities: { orderBy: { createdAt: "desc" }, take: 8 },
     },
   });
@@ -65,6 +71,7 @@ export default async function ProjectDetailPage({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <StatusBadge status={project.status} />
           <PriorityBadge priority={project.priority} />
           <AdvanceStageButton projectId={project.id} />
         </div>
@@ -83,6 +90,90 @@ export default async function ProjectDetailPage({
           <div className="flex items-start gap-2 rounded-lg bg-secondary/60 px-3 py-2 text-sm">
             <span className="font-medium">Next best action:</span>
             <span className="text-muted-foreground">{project.nextAction}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Project management</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <form action={updateProject} className="grid gap-4 lg:grid-cols-2">
+            <input type="hidden" name="projectId" value={project.id} />
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Project name</Label>
+              <Input id="project-name" name="name" defaultValue={project.name} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-next-action">Next best action</Label>
+              <Input
+                id="project-next-action"
+                name="nextAction"
+                defaultValue={project.nextAction}
+                required
+              />
+            </div>
+            <div className="space-y-2 lg:col-span-2">
+              <Label htmlFor="project-summary">Description</Label>
+              <Textarea
+                id="project-summary"
+                name="summary"
+                defaultValue={project.summary}
+                rows={3}
+                required
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3 lg:col-span-2">
+              <div className="space-y-2">
+                <Label htmlFor="project-priority">Priority</Label>
+                <NativeSelect id="project-priority" name="priority" defaultValue={project.priority}>
+                  {PRIORITIES.map((priority) => (
+                    <option key={priority} value={priority}>
+                      {priority}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="project-status">Status</Label>
+                <NativeSelect id="project-status" name="status" defaultValue={project.status}>
+                  {PROJECT_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="project-stage">Stage</Label>
+                <NativeSelect id="project-stage" name="stage" defaultValue={project.stage}>
+                  {STAGES.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {stage}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:col-span-2">
+              <Button type="submit">Save project</Button>
+            </div>
+          </form>
+
+          <div className="flex flex-wrap gap-2 border-t border-border pt-4">
+            <form action={archiveProject}>
+              <input type="hidden" name="projectId" value={project.id} />
+              <Button type="submit" variant="outline">
+                Archive project
+              </Button>
+            </form>
+            <form action={deleteProject}>
+              <input type="hidden" name="projectId" value={project.id} />
+              <Button type="submit" variant="destructive">
+                Delete project
+              </Button>
+            </form>
           </div>
         </CardContent>
       </Card>

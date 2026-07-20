@@ -26,6 +26,7 @@ const SPACING = ["4", "8", "12", "16", "24", "32"];
 
 export default async function DesignDnaPage() {
   const projects = await prisma.project.findMany({
+    where: { archivedAt: null },
     orderBy: { updatedAt: "desc" },
   });
 

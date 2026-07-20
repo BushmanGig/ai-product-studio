@@ -1,4 +1,4 @@
-import { FileText, Target, Users, LineChart, ListTodo } from "lucide-react";
+import { FileText, Target, Users, LineChart, ListTodo, AlertTriangle, Telescope, Save } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
 import { PageShell, PageHeader } from "@/components/page-header";
@@ -6,35 +6,63 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/empty-state";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { saveBlueprint } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
 
 const PRD_SECTIONS = [
   {
-    icon: Target,
-    title: "Problem & goals",
-    prompt: "What painful problem does this solve, and what does success look like?",
+    icon: Telescope,
+    title: "Vision",
+    name: "vision",
+    prompt: "What future does this product create for the customer and the studio?",
   },
   {
     icon: Users,
     title: "Target users",
+    name: "targetUsers",
     prompt: "Who is this for, and what job are they hiring the product to do?",
   },
   {
-    icon: ListTodo,
-    title: "Core requirements",
-    prompt: "The must-have capabilities for a credible first version.",
+    icon: Target,
+    title: "Problem statement",
+    name: "problemStatement",
+    prompt: "What painful problem does this solve, and why is now the right time?",
   },
   {
     icon: LineChart,
     title: "Success metrics",
+    name: "successMetrics",
     prompt: "The signals that tell you this is working.",
+  },
+  {
+    icon: Users,
+    title: "User stories",
+    name: "userStories",
+    prompt: "The core user stories that define the first usable version.",
+  },
+  {
+    icon: ListTodo,
+    title: "Feature scope",
+    name: "featureScope",
+    prompt: "The must-have, should-have, and intentionally excluded capabilities.",
+  },
+  {
+    icon: AlertTriangle,
+    title: "Risks / assumptions",
+    name: "risksAssumptions",
+    prompt: "The riskiest assumptions, dependencies, and validation checks.",
   },
 ];
 
 export default async function BlueprintPage() {
   const projects = await prisma.project.findMany({
+    where: { archivedAt: null },
     orderBy: { updatedAt: "desc" },
+    include: { blueprint: true },
   });
 
   return (
@@ -71,27 +99,44 @@ export default async function BlueprintPage() {
                 </CardContent>
               </Card>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                {PRD_SECTIONS.map((section) => {
-                  const Icon = section.icon;
-                  return (
-                    <Card key={section.title}>
-                      <CardHeader className="flex-row items-center gap-2 space-y-0">
-                        <Icon className="h-4 w-4 text-primary" />
-                        <CardTitle>{section.title}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-muted-foreground">
-                          {section.prompt}
-                        </p>
-                        <div className="mt-3 rounded-lg border border-dashed border-border bg-secondary/40 px-3 py-6 text-center text-xs text-muted-foreground">
-                          Draft this section from the Prompt Library
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+              <form action={saveBlueprint} className="space-y-4">
+                <input type="hidden" name="projectId" value={p.id} />
+                <div className="grid gap-4 md:grid-cols-2">
+                  {PRD_SECTIONS.map((section) => {
+                    const Icon = section.icon;
+                    const value =
+                      p.blueprint?.[section.name as keyof typeof p.blueprint] ?? "";
+                    return (
+                      <Card key={section.title}>
+                        <CardHeader className="flex-row items-center gap-2 space-y-0">
+                          <Icon className="h-4 w-4 text-primary" />
+                          <CardTitle>{section.title}</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            {section.prompt}
+                          </p>
+                          <div className="space-y-2">
+                            <Label htmlFor={`${p.slug}-${section.name}`}>
+                              {section.title}
+                            </Label>
+                            <Textarea
+                              id={`${p.slug}-${section.name}`}
+                              name={section.name}
+                              defaultValue={String(value)}
+                              rows={5}
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+                <Button type="submit">
+                  <Save className="h-4 w-4" />
+                  Save blueprint
+                </Button>
+              </form>
             </TabsContent>
           ))}
         </Tabs>

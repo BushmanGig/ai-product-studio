@@ -39,6 +39,39 @@ export type Priority = "Low" | "Medium" | "High" | "Critical";
 
 export const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Critical"];
 
+export type ProjectStatus = "Active" | "Paused" | "Archived";
+
+export const PROJECT_STATUSES: ProjectStatus[] = ["Active", "Paused", "Archived"];
+
+export type BuildTaskStatus = "Backlog" | "Ready" | "In Progress" | "Review" | "Done";
+
+export const BUILD_TASK_STATUSES: BuildTaskStatus[] = [
+  "Backlog",
+  "Ready",
+  "In Progress",
+  "Review",
+  "Done",
+];
+
+export type PromptCategory =
+  | "Discovery"
+  | "PRD"
+  | "Design DNA"
+  | "Build Pack"
+  | "QA"
+  | "Launch";
+
+export const PROMPT_CATEGORIES: PromptCategory[] = [
+  "Discovery",
+  "PRD",
+  "Design DNA",
+  "Build Pack",
+  "QA",
+  "Launch",
+];
+
+export const LAUNCH_STATUSES = ["Planned", "In Progress", "Done", "Blocked"] as const;
+
 export interface NavItem {
   label: string;
   href: string;

@@ -26,6 +26,9 @@ run repeatedly.
 
 - Dev server: `npm run dev` → http://localhost:3000 (start it in a tmux session).
 - Checks: `npm run lint`, `npm run typecheck`, `npm run build` all pass from a clean tree.
+- End-to-end tests: `npm run test:e2e` runs Playwright; run `npm run db:setup` first so
+  SQLite has the latest schema and seed data. The Playwright config starts `npm run dev`
+  automatically.
 - `npm run build` runs `prisma generate` first, but still needs the DB seeded for the app
   to actually serve data.
 
@@ -36,5 +39,8 @@ run repeatedly.
 - Data source is SQLite for local dev but is Postgres/Supabase-ready: switch the Prisma
   datasource `provider` to `postgresql` and update `DATABASE_URL` (see `.env.example`). No
   application code changes are needed — all data access goes through `src/lib/prisma.ts`.
-- Mutations use Next.js Server Actions in `src/lib/actions.ts` (create project, advance
-  stage, toggle QA item) with `revalidatePath`, so changes appear after the action resolves.
+- Mutations use Next.js Server Actions in `src/lib/actions.ts` (project, blueprint,
+  prompt, build queue, QA, and launch management) with `revalidatePath`, so changes appear
+  after the action resolves.
+- GitHub Actions CI is defined in `.github/workflows/ci.yml` and runs install, database
+  setup, typecheck, lint, build, and Playwright tests on pull requests.

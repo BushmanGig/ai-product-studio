@@ -22,6 +22,19 @@ Lucide icons, and Prisma with SQLite for zero-config local development.
 9. **Launch Plan** — go-to-market timeline per project.
 10. **Settings** — studio preferences, workflow config and data source.
 
+## Sprint 2 management flows
+
+- Projects can be created, edited, advanced, archived, or deleted. Edits cover name,
+  description, priority, status, stage, and next best action, with activity logged.
+- Product Blueprint stores editable, project-specific PRD sections for vision, target
+  users, problem statement, success metrics, user stories, feature scope, and risks.
+- Prompt Library supports global or project-attached prompts across Discovery, PRD,
+  Design DNA, Build Pack, QA, and Launch categories.
+- Build Queue tasks can be created, edited, moved from Backlog through Done, prioritized,
+  archived, and connected to projects.
+- QA and Launch items can be created, edited, and archived; QA toggles still save
+  immediately.
+
 ## Getting started
 
 ```bash
@@ -46,6 +59,7 @@ Then open <http://localhost:3000>.
 | `npm run start`     | Start the production server                   |
 | `npm run lint`      | Run ESLint                                     |
 | `npm run typecheck` | Run the TypeScript compiler (no emit)         |
+| `npm run test:e2e`  | Run Playwright end-to-end tests               |
 | `npm run db:push`   | Push the Prisma schema to the database        |
 | `npm run db:seed`   | Seed the database with example data           |
 | `npm run db:setup`  | Push schema **and** seed in one step          |
@@ -63,6 +77,20 @@ To move to **Supabase / Postgres** later:
 3. Run `npm run db:push` (and optionally `npm run db:seed`).
 
 No application code changes are required — all data access goes through Prisma.
+
+## Testing and CI
+
+Playwright tests live in `tests/e2e` and start the Next.js dev server automatically.
+Run `npm run db:setup` before local E2E runs so SQLite has the latest schema and seed
+data.
+
+```bash
+npm run db:setup
+npm run test:e2e
+```
+
+GitHub Actions runs on pull requests and executes `npm install`, `npm run db:setup`,
+`npm run typecheck`, `npm run lint`, `npm run build`, and Playwright tests.
 
 ## Tech stack
 

@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ReviewCentrePage() {
   const reviews = await prisma.review.findMany({
+    where: { project: { archivedAt: null } },
     orderBy: { createdAt: "desc" },
     include: { project: true },
   });
