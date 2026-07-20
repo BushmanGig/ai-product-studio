@@ -1,0 +1,120 @@
+import {
+  LayoutDashboard,
+  FolderKanban,
+  FileText,
+  Palette,
+  Library,
+  ListChecks,
+  MessagesSquare,
+  ShieldCheck,
+  Rocket,
+  Settings,
+  type LucideIcon,
+} from "lucide-react";
+
+export type Stage =
+  | "Idea"
+  | "Discovery"
+  | "PRD"
+  | "Design DNA"
+  | "Build Pack"
+  | "Engineering"
+  | "QA"
+  | "Launch"
+  | "Growth";
+
+export const STAGES: Stage[] = [
+  "Idea",
+  "Discovery",
+  "PRD",
+  "Design DNA",
+  "Build Pack",
+  "Engineering",
+  "QA",
+  "Launch",
+  "Growth",
+];
+
+export type Priority = "Low" | "Medium" | "High" | "Critical";
+
+export const PRIORITIES: Priority[] = ["Low", "Medium", "High", "Critical"];
+
+export interface NavItem {
+  label: string;
+  href: string;
+  icon: LucideIcon;
+  description: string;
+}
+
+export const NAV_ITEMS: NavItem[] = [
+  {
+    label: "Dashboard",
+    href: "/",
+    icon: LayoutDashboard,
+    description: "Your studio at a glance",
+  },
+  {
+    label: "Projects",
+    href: "/projects",
+    icon: FolderKanban,
+    description: "Every idea in motion",
+  },
+  {
+    label: "Product Blueprint",
+    href: "/blueprint",
+    icon: FileText,
+    description: "PRDs and product specs",
+  },
+  {
+    label: "Design DNA",
+    href: "/design-dna",
+    icon: Palette,
+    description: "Brand, tokens and UI kit",
+  },
+  {
+    label: "Prompt Library",
+    href: "/prompt-library",
+    icon: Library,
+    description: "Reusable AI prompts",
+  },
+  {
+    label: "Build Queue",
+    href: "/build-queue",
+    icon: ListChecks,
+    description: "Sprint and delivery",
+  },
+  {
+    label: "Review Centre",
+    href: "/review-centre",
+    icon: MessagesSquare,
+    description: "Feedback and approvals",
+  },
+  {
+    label: "QA Checklist",
+    href: "/qa-checklist",
+    icon: ShieldCheck,
+    description: "Ship with confidence",
+  },
+  {
+    label: "Launch Plan",
+    href: "/launch-plan",
+    icon: Rocket,
+    description: "Go-to-market steps",
+  },
+  {
+    label: "Settings",
+    href: "/settings",
+    icon: Settings,
+    description: "Studio preferences",
+  },
+];
+
+export function stageProgress(stage: string): number {
+  const index = STAGES.indexOf(stage as Stage);
+  if (index < 0) return 0;
+  return Math.round(((index + 1) / STAGES.length) * 100);
+}
+
+export function priorityRank(priority: string): number {
+  return PRIORITIES.indexOf(priority as Priority);
+}
