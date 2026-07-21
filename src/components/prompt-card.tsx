@@ -1,7 +1,6 @@
 "use client";
 
-import * as React from "react";
-import { Archive, Check, Copy, Save, Trash2 } from "lucide-react";
+import { Archive, Save, Trash2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { CopyButton } from "@/components/copy-button";
 import { PROMPT_CATEGORIES } from "@/lib/constants";
 import { archivePrompt, deletePrompt, updatePrompt } from "@/lib/actions";
 
@@ -35,18 +35,6 @@ export function PromptCard({
   prompt: PromptData;
   projects: PromptProjectOption[];
 }) {
-  const [copied, setCopied] = React.useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(prompt.body);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard may be unavailable; ignore.
-    }
-  }
-
   const tags = prompt.tags.split(",").map((t) => t.trim()).filter(Boolean);
 
   return (
@@ -77,14 +65,7 @@ export function PromptCard({
               </span>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={copy}>
-            {copied ? (
-              <Check className="h-3.5 w-3.5" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-            {copied ? "Copied" : "Copy"}
-          </Button>
+          <CopyButton value={prompt.body} label="Copy Prompt" copiedLabel="Copied to clipboard" />
         </div>
         <details className="rounded-lg border border-border bg-background/60 p-3">
           <summary className="cursor-pointer text-xs font-medium text-muted-foreground">

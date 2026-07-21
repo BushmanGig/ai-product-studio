@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   Rocket,
   Settings,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 
@@ -70,6 +71,50 @@ export const PROMPT_CATEGORIES: PromptCategory[] = [
   "Launch",
 ];
 
+export const GENERATION_PROMPT_CATEGORIES = [
+  "Discovery",
+  "PRD",
+  "Design DNA",
+  "Build Pack",
+  "QA",
+  "Launch",
+] as const;
+
+export type DesignInspirationCategory =
+  | "layout"
+  | "typography"
+  | "colour"
+  | "components"
+  | "motion"
+  | "branding";
+
+export const DESIGN_INSPIRATION_CATEGORIES: DesignInspirationCategory[] = [
+  "layout",
+  "typography",
+  "colour",
+  "components",
+  "motion",
+  "branding",
+];
+
+export const PLATFORMS = [
+  "Web app",
+  "Mobile app",
+  "Desktop app",
+  "API / backend",
+  "Multi-platform",
+] as const;
+
+export const BUSINESS_MODELS = [
+  "Subscription",
+  "One-time purchase",
+  "Freemium",
+  "Marketplace",
+  "Internal tool",
+  "Advertising",
+  "Other",
+] as const;
+
 export const LAUNCH_STATUSES = ["Planned", "In Progress", "Done", "Blocked"] as const;
 
 export interface NavItem {
@@ -103,6 +148,12 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/design-dna",
     icon: Palette,
     description: "Brand, tokens and UI kit",
+  },
+  {
+    label: "Build Pack",
+    href: "/build-pack",
+    icon: Package,
+    description: "Stack, milestones, agent prompts",
   },
   {
     label: "Prompt Library",
