@@ -54,19 +54,24 @@ function StatCard({
 
 export default async function DashboardPage() {
   const [projects, activities, buildTasks, qaOpen] = await Promise.all([
-    prisma.project.findMany({ orderBy: { updatedAt: "desc" } }),
+    prisma.project.findMany({
+      where: { archivedAt: null },
+      orderBy: { updatedAt: "desc" },
+    }),
     prisma.activity.findMany({
       orderBy: { createdAt: "desc" },
       take: 6,
       include: { project: true },
     }),
     prisma.buildTask.findMany({
-      where: { status: { not: "Done" } },
+      where: { status: { not: "Done" }, archivedAt: null, project: { archivedAt: null } },
       orderBy: { createdAt: "asc" },
       take: 5,
       include: { project: true },
     }),
-    prisma.qaItem.count({ where: { checked: false } }),
+    prisma.qaItem.count({
+      where: { checked: false, archivedAt: null, project: { archivedAt: null } },
+    }),
   ]);
 
   const launching = projects.filter((p) =>
@@ -188,7 +193,7 @@ export default async function DashboardPage() {
                     <div className="min-w-0">
                       <p className="text-sm leading-snug">{a.message}</p>
                       <p className="text-xs text-muted-foreground">
-                        {a.project.name} · {timeAgo(a.createdAt)}
+                        {a.project?.name ?? "Studio"} · {timeAgo(a.createdAt)}
                       </p>
                     </div>
                   </div>

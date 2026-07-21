@@ -13,12 +13,13 @@ function slugify(value: string): string {
 async function main() {
   // Clean slate so the seed is idempotent.
   await prisma.activity.deleteMany();
+  await prisma.blueprint.deleteMany();
   await prisma.buildTask.deleteMany();
   await prisma.qaItem.deleteMany();
   await prisma.launchItem.deleteMany();
   await prisma.review.deleteMany();
-  await prisma.project.deleteMany();
   await prisma.prompt.deleteMany();
+  await prisma.project.deleteMany();
 
   const projects = [
     {
@@ -80,6 +81,19 @@ async function main() {
       data: { ...p, slug: slugify(p.name) },
     });
     created[p.name] = project.id;
+
+    await prisma.blueprint.create({
+      data: {
+        projectId: project.id,
+        vision: `${p.name} should give the studio a crisp path from idea to shipped product.`,
+        targetUsers: "Founders, product leads, designers, and builders moving quickly from concept to launch.",
+        problemStatement: p.summary,
+        successMetrics: "Clear next action, active build queue, QA readiness, and launch confidence.",
+        userStories: "As a studio lead, I can see the current stage and next action so I know where to focus.",
+        featureScope: "Discovery notes, PRD sections, design direction, build tasks, QA checks, and launch steps.",
+        risksAssumptions: "The workflow must stay lightweight enough that teams keep it updated each sprint.",
+      },
+    });
   }
 
   const activities = [
@@ -101,11 +115,11 @@ async function main() {
   const buildTasks = [
     ["AI Product Studio", "Build responsive sidebar navigation", "Done", "High", "M"],
     ["AI Product Studio", "Implement project cards + progress", "In Progress", "High", "M"],
-    ["AI Product Studio", "Wire Today panel to next actions", "Queued", "Critical", "S"],
+    ["AI Product Studio", "Wire Today panel to next actions", "Ready", "Critical", "S"],
     ["AlphaCall CRM", "Design call-log schema", "In Progress", "High", "M"],
-    ["AlphaCall CRM", "AI summary prompt integration", "Queued", "Medium", "L"],
-    ["Salty Dreads", "Booking flow wireframes", "Queued", "Medium", "M"],
-    ["Senior Grocery Scanner", "Barcode scan spike", "Queued", "High", "L"],
+    ["AlphaCall CRM", "AI summary prompt integration", "Backlog", "Medium", "L"],
+    ["Salty Dreads", "Booking flow wireframes", "Backlog", "Medium", "M"],
+    ["Senior Grocery Scanner", "Barcode scan spike", "Backlog", "High", "L"],
   ];
 
   for (const [name, title, status, priority, estimate] of buildTasks) {
@@ -159,45 +173,46 @@ async function main() {
   const prompts = [
     {
       title: "Concept brief generator",
-      category: "Ideation",
-      stage: "Idea",
+      category: "Discovery",
       body: "You are a product strategist. Turn this raw idea into a one-page concept brief with problem, target user, value proposition, and 3 risky assumptions.\n\nIdea: {{idea}}",
       tags: "brief,strategy",
     },
     {
       title: "Discovery interview script",
       category: "Discovery",
-      stage: "Discovery",
       body: "Write a 20-minute customer discovery interview script for {{persona}} exploring the problem of {{problem}}. Keep questions open, non-leading, and JTBD-focused.",
       tags: "research,interviews",
     },
     {
       title: "PRD scaffold",
-      category: "Spec",
-      stage: "PRD",
+      category: "PRD",
       body: "Draft a PRD for {{feature}} including goals, non-goals, user stories, success metrics, and rollout plan. Be concise and skimmable.",
       tags: "prd,spec",
     },
     {
       title: "Design DNA extractor",
-      category: "Design",
-      stage: "Design DNA",
+      category: "Design DNA",
       body: "Given the brand adjectives {{adjectives}}, propose a colour palette, type scale, spacing system, and 3 reference products with a similar feel.",
       tags: "design,tokens",
     },
     {
       title: "Build pack decomposer",
-      category: "Engineering",
-      stage: "Build Pack",
+      category: "Build Pack",
       body: "Break {{feature}} into a build pack of small, independently shippable tasks with clear acceptance criteria and rough estimates.",
       tags: "planning,tasks",
     },
     {
       title: "QA checklist builder",
       category: "QA",
-      stage: "QA",
       body: "Generate a QA checklist for {{feature}} covering functionality, accessibility, responsive behaviour, edge cases, and performance.",
       tags: "qa,checklist",
+    },
+    {
+      title: "Launch announcement planner",
+      category: "Launch",
+      body: "Create a launch announcement plan for {{product}} with audience, channels, proof points, timeline, and post-launch follow-up.",
+      tags: "launch,gtm",
+      projectId: created["AI Product Studio"],
     },
   ];
 

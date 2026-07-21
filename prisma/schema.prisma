@@ -18,11 +18,13 @@ model Project {
   name        String
   slug        String   @unique
   summary     String
+  status      String   @default("Active")
   stage       String   @default("Idea")
   priority    String   @default("Medium")
   progress    Int      @default(0)
   nextAction  String   @default("")
   color       String   @default("#6366f1")
+  archivedAt  DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -31,15 +33,32 @@ model Project {
   qaItems     QaItem[]
   launchItems LaunchItem[]
   reviews     Review[]
+  blueprint   Blueprint?
+  prompts     Prompt[]
 }
 
 model Activity {
   id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   type      String   @default("update")
   message   String
   createdAt DateTime @default(now())
+}
+
+model Blueprint {
+  id                String   @id @default(cuid())
+  projectId         String   @unique
+  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vision            String   @default("")
+  targetUsers       String   @default("")
+  problemStatement  String   @default("")
+  successMetrics    String   @default("")
+  userStories       String   @default("")
+  featureScope      String   @default("")
+  risksAssumptions  String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model BuildTask {
@@ -47,10 +66,12 @@ model BuildTask {
   projectId String
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   title     String
-  status    String   @default("Queued")
+  status    String   @default("Backlog")
   priority  String   @default("Medium")
   estimate  String   @default("")
+  archivedAt DateTime?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model QaItem {
@@ -60,7 +81,9 @@ model QaItem {
   category  String   @default("General")
   label     String
   checked   Boolean  @default(false)
+  archivedAt DateTime?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model LaunchItem {
@@ -71,7 +94,9 @@ model LaunchItem {
   title     String
   status    String   @default("Planned")
   dueLabel  String   @default("")
+  archivedAt DateTime?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Review {
@@ -87,10 +112,13 @@ model Review {
 
 model Prompt {
   id        String   @id @default(cuid())
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   title     String
-  category  String   @default("General")
-  stage     String   @default("Idea")
+  category  String   @default("Discovery")
   body      String
   tags      String   @default("")
+  archivedAt DateTime?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
