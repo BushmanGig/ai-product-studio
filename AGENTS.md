@@ -28,7 +28,7 @@ run repeatedly.
 - Checks: `npm run lint`, `npm run typecheck`, `npm run build` all pass from a clean tree.
 - End-to-end tests: `npm run test:e2e` runs Playwright; run `npm run db:setup` first so
   SQLite has the latest schema and seed data. The Playwright config starts `npm run dev`
-  automatically.
+  automatically. Install browsers with `npx playwright install chromium` when missing.
 - `npm run build` runs `prisma generate` first, but still needs the DB seeded for the app
   to actually serve data.
 
@@ -37,10 +37,15 @@ run repeatedly.
 - The app intentionally does **not** use `next/font/google`; it uses a system font stack so
   builds do not require network access to Google Fonts.
 - Data source is SQLite for local dev but is Postgres/Supabase-ready: switch the Prisma
-  datasource `provider` to `postgresql` and update `DATABASE_URL` (see `.env.example`). No
-  application code changes are needed — all data access goes through `src/lib/prisma.ts`.
-- Mutations use Next.js Server Actions in `src/lib/actions.ts` (project, blueprint,
-  prompt, build queue, QA, and launch management) with `revalidatePath`, so changes appear
-  after the action resolves.
+  datasource `provider` to `postgresql` and update `DATABASE_URL` (see `.env.example` and
+  `docs/POSTGRES.md`). No application code changes are needed — all data access goes
+  through `src/lib/prisma.ts`.
+- AI generation uses a server-only provider abstraction in `src/lib/ai`. Default is mock
+  mode. Optional OpenAI-compatible calls read `OPENAI_API_KEY` / `OPENAI_BASE_URL` /
+  `OPENAI_MODEL` / `OPENAI_TEMPERATURE` from server env only. Never store raw API keys in
+  SQLite or expose them to client components.
+- Mutations use Next.js Server Actions in `src/lib/actions.ts` (intake, project, blueprint,
+  design DNA, build pack, prompt, build queue, QA, launch, AI settings) with
+  `revalidatePath`, so changes appear after the action resolves.
 - GitHub Actions CI is defined in `.github/workflows/ci.yml` and runs install, database
   setup, typecheck, lint, build, and Playwright tests on pull requests.

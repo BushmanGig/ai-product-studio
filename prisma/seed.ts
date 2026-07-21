@@ -13,6 +13,10 @@ function slugify(value: string): string {
 async function main() {
   // Clean slate so the seed is idempotent.
   await prisma.activity.deleteMany();
+  await prisma.designInspiration.deleteMany();
+  await prisma.designDna.deleteMany();
+  await prisma.buildPack.deleteMany();
+  await prisma.projectIntake.deleteMany();
   await prisma.blueprint.deleteMany();
   await prisma.buildTask.deleteMany();
   await prisma.qaItem.deleteMany();
@@ -20,6 +24,17 @@ async function main() {
   await prisma.review.deleteMany();
   await prisma.prompt.deleteMany();
   await prisma.project.deleteMany();
+  await prisma.studioSettings.deleteMany();
+
+  await prisma.studioSettings.create({
+    data: {
+      id: "default",
+      mockMode: true,
+      baseUrl: "https://api.openai.com/v1",
+      modelName: "gpt-4o-mini",
+      temperature: 0.4,
+    },
+  });
 
   const projects = [
     {
@@ -82,19 +97,79 @@ async function main() {
     });
     created[p.name] = project.id;
 
+    await prisma.projectIntake.create({
+      data: {
+        projectId: project.id,
+        concept: p.summary,
+        targetUser: "Founders, product leads, and builders shipping quickly",
+        problem: p.summary,
+        platform: "Web app",
+        businessModel: "Internal tool",
+        mustHaveFeatures: "Intake, blueprint, design DNA, build pack, prompt library",
+        visualInspirations: "Calm studio dashboards with strong hierarchy",
+        technicalPreferences: "Next.js, TypeScript, Prisma, Tailwind",
+        constraints: "Must work offline-friendly in local mock mode without API keys",
+      },
+    });
+
     await prisma.blueprint.create({
       data: {
         projectId: project.id,
         vision: `${p.name} should give the studio a crisp path from idea to shipped product.`,
-        targetUsers: "Founders, product leads, designers, and builders moving quickly from concept to launch.",
+        targetUsers:
+          "Founders, product leads, designers, and builders moving quickly from concept to launch.",
         problemStatement: p.summary,
-        successMetrics: "Clear next action, active build queue, QA readiness, and launch confidence.",
-        userStories: "As a studio lead, I can see the current stage and next action so I know where to focus.",
-        featureScope: "Discovery notes, PRD sections, design direction, build tasks, QA checks, and launch steps.",
-        risksAssumptions: "The workflow must stay lightweight enough that teams keep it updated each sprint.",
+        successMetrics:
+          "Clear next action, active build queue, QA readiness, and launch confidence.",
+        userStories:
+          "As a studio lead, I can see the current stage and next action so I know where to focus.",
+        mvpScope:
+          "Discovery notes, PRD sections, design direction, build tasks, QA checks, and launch steps.",
+        futureScope: "Multi-user collaboration, PDF export, and live provider routing.",
+        risksAssumptions:
+          "The workflow must stay lightweight enough that teams keep it updated each sprint.",
+      },
+    });
+
+    await prisma.designDna.create({
+      data: {
+        projectId: project.id,
+        designPrinciples: "Clarity over decoration. One primary action per view.",
+        typography: "Geometric sans for titles, readable system sans for body copy.",
+        colourDirection: `Accent anchored on ${p.color} with calm neutrals.`,
+        spacing: "4 / 8 / 12 / 16 / 24 / 32 rhythm",
+        componentStyle: "Soft radii, hairline borders, quiet elevation.",
+        motionStyle: "Short fade/slide transitions on page entry and generate feedback.",
+        accessibilityRequirements: "AA contrast, keyboard reachability, visible focus states.",
+      },
+    });
+
+    await prisma.buildPack.create({
+      data: {
+        projectId: project.id,
+        recommendedStack: "Next.js App Router, TypeScript, Tailwind, Prisma",
+        architectureSummary:
+          "Single Next.js service with Server Actions and a server-only AI provider layer.",
+        databaseEntities: "Project, Intake, Blueprint, DesignDna, BuildPack, Prompt",
+        pagesRoutes: "/projects/new, /blueprint, /design-dna, /build-pack, /settings",
+        milestonePlan: "Intake → Blueprint → Design DNA → Build Pack → Engineering",
+        codingAgentPrompt: `Build ${p.name} as a focused MVP using the studio workflow artifacts.`,
+        acceptanceCriteria: "Generated artifacts are editable, copyable, and project-specific.",
+        qaChecklist: "Intake, generate, edit, copy, and settings key-status checks.",
       },
     });
   }
+
+  await prisma.designInspiration.create({
+    data: {
+      projectId: created["Salty Dreads"],
+      sourceUrl: "https://example.com/coastal-studio",
+      imageRef: "moodboard-coastal.png",
+      notes: "Soft sand neutrals with ocean accent moments.",
+      likes: "Warm photography paired with restrained type",
+      category: "branding",
+    },
+  });
 
   const activities = [
     ["AI Product Studio", "milestone", "Engineering sprint kicked off"],
@@ -223,6 +298,7 @@ async function main() {
   console.log("Seed complete:");
   console.log(`  ${projects.length} projects`);
   console.log(`  ${prompts.length} prompts`);
+  console.log("  studio settings (mock mode on)");
 }
 
 main()

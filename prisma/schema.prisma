@@ -1,8 +1,8 @@
 // AI Product Studio schema.
 //
-// Local development uses SQLite for zero-config setup. To migrate to
-// Supabase/Postgres later, change `provider` to "postgresql" and point
-// DATABASE_URL at your Postgres connection string (see .env.example).
+// Local development uses SQLite for zero-config setup. The schema is written to
+// remain PostgreSQL-compatible (no SQLite-only column types or raw SQL).
+// See docs/POSTGRES.md and .env.example for the Supabase/Postgres migration steps.
 
 generator client {
   provider = "prisma-client-js"
@@ -14,27 +14,48 @@ datasource db {
 }
 
 model Project {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
-  slug        String   @unique
+  slug        String    @unique
   summary     String
-  status      String   @default("Active")
-  stage       String   @default("Idea")
-  priority    String   @default("Medium")
-  progress    Int      @default(0)
-  nextAction  String   @default("")
-  color       String   @default("#6366f1")
+  status      String    @default("Active")
+  stage       String    @default("Idea")
+  priority    String    @default("Medium")
+  progress    Int       @default(0)
+  nextAction  String    @default("")
+  color       String    @default("#6366f1")
   archivedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  activities  Activity[]
-  buildTasks  BuildTask[]
-  qaItems     QaItem[]
-  launchItems LaunchItem[]
-  reviews     Review[]
-  blueprint   Blueprint?
-  prompts     Prompt[]
+  activities   Activity[]
+  buildTasks   BuildTask[]
+  qaItems      QaItem[]
+  launchItems  LaunchItem[]
+  reviews      Review[]
+  blueprint    Blueprint?
+  designDna    DesignDna?
+  buildPack    BuildPack?
+  intake       ProjectIntake?
+  inspirations DesignInspiration[]
+  prompts      Prompt[]
+}
+
+model ProjectIntake {
+  id                   String   @id @default(cuid())
+  projectId            String   @unique
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  concept              String   @default("")
+  targetUser           String   @default("")
+  problem              String   @default("")
+  platform             String   @default("")
+  businessModel        String   @default("")
+  mustHaveFeatures     String   @default("")
+  visualInspirations   String   @default("")
+  technicalPreferences String   @default("")
+  constraints          String   @default("")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model Activity {
@@ -47,56 +68,101 @@ model Activity {
 }
 
 model Blueprint {
-  id                String   @id @default(cuid())
-  projectId         String   @unique
-  project           Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  vision            String   @default("")
-  targetUsers       String   @default("")
-  problemStatement  String   @default("")
-  successMetrics    String   @default("")
-  userStories       String   @default("")
-  featureScope      String   @default("")
-  risksAssumptions  String   @default("")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  projectId        String   @unique
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  vision           String   @default("")
+  targetUsers      String   @default("")
+  problemStatement String   @default("")
+  successMetrics   String   @default("")
+  userStories      String   @default("")
+  mvpScope         String   @default("")
+  futureScope      String   @default("")
+  risksAssumptions String   @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model DesignDna {
+  id                        String   @id @default(cuid())
+  projectId                 String   @unique
+  project                   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  designPrinciples          String   @default("")
+  typography                String   @default("")
+  colourDirection           String   @default("")
+  spacing                   String   @default("")
+  componentStyle            String   @default("")
+  motionStyle               String   @default("")
+  accessibilityRequirements String   @default("")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model DesignInspiration {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceUrl   String   @default("")
+  imageRef    String   @default("")
+  notes       String   @default("")
+  likes       String   @default("")
+  category    String   @default("layout")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model BuildPack {
+  id                   String   @id @default(cuid())
+  projectId            String   @unique
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  recommendedStack     String   @default("")
+  architectureSummary  String   @default("")
+  databaseEntities     String   @default("")
+  pagesRoutes          String   @default("")
+  milestonePlan        String   @default("")
+  codingAgentPrompt    String   @default("")
+  acceptanceCriteria   String   @default("")
+  qaChecklist          String   @default("")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model BuildTask {
-  id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  title     String
-  status    String   @default("Backlog")
-  priority  String   @default("Medium")
-  estimate  String   @default("")
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title      String
+  status     String    @default("Backlog")
+  priority   String    @default("Medium")
+  estimate   String    @default("")
   archivedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model QaItem {
-  id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  category  String   @default("General")
-  label     String
-  checked   Boolean  @default(false)
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category   String    @default("General")
+  label      String
+  checked    Boolean   @default(false)
   archivedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model LaunchItem {
-  id        String   @id @default(cuid())
-  projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  channel   String
-  title     String
-  status    String   @default("Planned")
-  dueLabel  String   @default("")
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  channel    String
+  title      String
+  status     String    @default("Planned")
+  dueLabel   String    @default("")
   archivedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Review {
@@ -111,14 +177,24 @@ model Review {
 }
 
 model Prompt {
-  id        String   @id @default(cuid())
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  title     String
-  category  String   @default("Discovery")
-  body      String
-  tags      String   @default("")
+  id         String    @id @default(cuid())
+  projectId  String?
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  title      String
+  category   String    @default("Discovery")
+  body       String
+  tags       String    @default("")
   archivedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+/// Non-secret AI provider preferences. API keys live only in server env vars.
+model StudioSettings {
+  id          String   @id @default("default")
+  mockMode    Boolean  @default(true)
+  baseUrl     String   @default("https://api.openai.com/v1")
+  modelName   String   @default("gpt-4o-mini")
+  temperature Float    @default(0.4)
+  updatedAt   DateTime @updatedAt
 }
