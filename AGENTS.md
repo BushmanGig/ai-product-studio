@@ -39,6 +39,9 @@ run repeatedly.
 - Data source is SQLite for local dev but is Postgres/Supabase-ready: switch the Prisma
   datasource `provider` to `postgresql` and update `DATABASE_URL` (see `.env.example`). No
   application code changes are needed — all data access goes through `src/lib/prisma.ts`.
+- SQLite-backed preview deployments lazily create an empty schema if `prisma/dev.db` is
+  absent, which prevents Vercel server-side crashes. Use Postgres/Supabase for durable
+  deployed data.
 - Mutations use Next.js Server Actions in `src/lib/actions.ts` (project, blueprint,
   prompt, build queue, QA, and launch management) with `revalidatePath`, so changes appear
   after the action resolves.
