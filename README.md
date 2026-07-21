@@ -68,6 +68,9 @@ Then open <http://localhost:3000>.
 ## Data layer
 
 Local development uses **SQLite** (`prisma/dev.db`) via Prisma for a zero-config setup.
+When a SQLite-backed preview deployment starts without `prisma/dev.db`, the app lazily
+creates the empty schema so pages render instead of crashing. Use Postgres/Supabase for
+durable deployed data.
 
 To move to **Supabase / Postgres** later:
 
