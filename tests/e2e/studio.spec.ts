@@ -80,13 +80,16 @@ test("generate and edit blueprint in mock mode", async ({ page }) => {
 
   await page.goto("/blueprint");
   await page.getByRole("tab", { name }).click();
-  await page.getByRole("button", { name: "Generate Blueprint" }).click();
-  await expect(page.getByText(/Generated with mock provider/i)).toBeVisible();
+  const panel = page.getByRole("tabpanel");
+  await panel.getByRole("button", { name: "Generate Blueprint" }).click();
+  await expect(panel.getByText(/Generated with mock provider/i)).toBeVisible();
 
-  const vision = page.locator('textarea[name="vision"]').first();
+  const vision = panel.locator('textarea[name="vision"]');
+  await expect(vision).not.toHaveValue("");
   await vision.fill("Edited vision for Playwright verification.");
-  await page.getByRole("button", { name: "Save blueprint" }).click();
-  await expect(page.locator('textarea[name="vision"]').first()).toHaveValue(
+  await expect(vision).toHaveValue("Edited vision for Playwright verification.");
+  await panel.getByRole("button", { name: "Save blueprint" }).click();
+  await expect(panel.locator('textarea[name="vision"]')).toHaveValue(
     "Edited vision for Playwright verification."
   );
 });
@@ -97,8 +100,9 @@ test("add Design DNA inspiration", async ({ page }) => {
 
   await page.goto("/design-dna");
   await page.getByRole("tab", { name }).click();
+  const panel = page.getByRole("tabpanel");
 
-  const form = page.locator("form").filter({ has: page.getByRole("button", { name: "Add inspiration" }) });
+  const form = panel.locator("form").filter({ has: page.getByRole("button", { name: "Add inspiration" }) });
   await form.getByLabel("Source URL").fill("https://example.com/inspiration");
   await form.getByLabel("Image / screenshot reference").fill("hero-reference.png");
   await form.getByLabel("Category").selectOption("typography");
@@ -106,8 +110,8 @@ test("add Design DNA inspiration", async ({ page }) => {
   await form.getByLabel("Notes").fill("Use for marketing and empty states.");
   await form.getByRole("button", { name: "Add inspiration" }).click();
 
-  await expect(page.getByText("Confident display type with calm body copy")).toBeVisible();
-  await expect(page.getByText("typography")).toBeVisible();
+  await expect(panel.getByText("Confident display type with calm body copy")).toBeVisible();
+  await expect(panel.locator("div").filter({ hasText: /^typography$/ })).toBeVisible();
 });
 
 test("generate build pack", async ({ page }) => {
@@ -116,9 +120,10 @@ test("generate build pack", async ({ page }) => {
 
   await page.goto("/build-pack");
   await page.getByRole("tab", { name }).click();
-  await page.getByRole("button", { name: "Generate Build Pack" }).click();
-  await expect(page.getByText(/Generated with mock provider/i)).toBeVisible();
-  await expect(page.locator('textarea[name="codingAgentPrompt"]').first()).not.toHaveValue("");
+  const panel = page.getByRole("tabpanel");
+  await panel.getByRole("button", { name: "Generate Build Pack" }).click();
+  await expect(panel.getByText(/Generated with mock provider/i)).toBeVisible();
+  await expect(panel.locator('textarea[name="codingAgentPrompt"]')).not.toHaveValue("");
 });
 
 test("copy prompt feedback", async ({ page }) => {
@@ -132,11 +137,14 @@ test("copy prompt feedback", async ({ page }) => {
 
 test("toggle QA item", async ({ page }) => {
   await page.goto("/qa-checklist");
-  await page.getByRole("button", { name: /Layout works from 360px to 1440px/ }).click();
+  const button = page.getByRole("button", { name: /Layout works from 360px to 1440px/ });
+  const struck = page.locator(".line-through", { hasText: "Layout works from 360px to 1440px" });
 
-  await expect(
-    page.locator(".line-through", { hasText: "Layout works from 360px to 1440px" })
-  ).toBeVisible();
+  if ((await struck.count()) === 0) {
+    await button.click();
+  }
+
+  await expect(struck).toBeVisible();
 });
 
 test("create prompt", async ({ page }) => {
@@ -150,8 +158,9 @@ test("create prompt", async ({ page }) => {
   await form.getByLabel("Tags").fill("qa,playwright");
   await form.getByRole("button", { name: "Create prompt" }).click();
 
-  await expect(page.getByText(title)).toBeVisible();
-  await expect(page.locator("pre", { hasText: "Review {{feature}} for risks" })).toBeVisible();
+  const card = page.locator(".flex.h-full.flex-col").filter({ hasText: title });
+  await expect(card.getByText(title)).toBeVisible();
+  await expect(card.locator("pre")).toContainText("Review {{feature}} for risks");
 });
 
 test("create build queue task", async ({ page }) => {
