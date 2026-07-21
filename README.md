@@ -6,7 +6,7 @@ repeatable workflow:
 > Idea → Discovery → PRD → Design DNA → Build Pack → Engineering → QA → Launch → Growth
 
 Built with Next.js (App Router), TypeScript, Tailwind CSS, shadcn-style UI components,
-Lucide icons, and Prisma with SQLite for zero-config local development.
+Lucide icons, and Prisma with PostgreSQL (Supabase / Neon / Prisma Postgres ready).
 
 ## Sections
 
@@ -37,18 +37,30 @@ Lucide icons, and Prisma with SQLite for zero-config local development.
 
 ## Getting started
 
+You need a PostgreSQL database. The quickest option is the bundled docker-compose
+service (or point `DATABASE_URL` at any Supabase / Neon / Prisma Postgres database).
+
 ```bash
-# 1. Install dependencies (also generates the Prisma client)
+# 1. Start a local Postgres (matches the default DATABASE_URL in .env)
+docker compose up -d
+
+# 2. Install dependencies (also generates the Prisma client)
 npm install
 
-# 2. Create the SQLite database and load seed data
+# 3. Copy env defaults (edit DATABASE_URL if not using docker-compose)
+cp .env.example .env
+
+# 4. Apply migrations and load seed data
 npm run db:setup
 
-# 3. Start the dev server
+# 5. Start the dev server
 npm run dev
 ```
 
 Then open <http://localhost:3000>.
+
+> No Docker? Set `DATABASE_URL` in `.env` to any Postgres connection string
+> (local install or a free Supabase/Neon database) and run `npm run db:setup`.
 
 ## Scripts
 
@@ -60,29 +72,35 @@ Then open <http://localhost:3000>.
 | `npm run lint`      | Run ESLint                                     |
 | `npm run typecheck` | Run the TypeScript compiler (no emit)         |
 | `npm run test:e2e`  | Run Playwright end-to-end tests               |
-| `npm run db:push`   | Push the Prisma schema to the database        |
+| `npm run db:migrate`| Apply migrations to the database (`prisma migrate deploy`) |
+| `npm run db:push`   | Push the Prisma schema without a migration     |
 | `npm run db:seed`   | Seed the database with example data           |
-| `npm run db:setup`  | Push schema **and** seed in one step          |
-| `npm run db:reset`  | Reset the database and re-seed                 |
+| `npm run db:setup`  | Apply migrations **and** seed in one step     |
+| `npm run db:reset`  | Reset the database, re-migrate and re-seed     |
 
 ## Data layer
 
-Local development uses **SQLite** (`prisma/dev.db`) via Prisma for a zero-config setup.
+The app uses **PostgreSQL** via Prisma for both local development and production. A
+single provider is used everywhere so the app runs correctly on serverless platforms
+like Vercel — **SQLite does not work on Vercel** because its filesystem is read-only
+and ephemeral.
 
-To move to **Supabase / Postgres** later:
+- `DATABASE_URL` (see `.env.example`) accepts any Postgres string: the bundled
+  docker-compose service, a local Postgres, or a hosted Supabase / Neon / Prisma
+  Postgres database.
+- Schema changes are tracked as SQL migrations in `prisma/migrations/`. Apply them
+  with `npm run db:migrate` (locally) or `prisma migrate deploy` (production).
+- Optional AI features read `AI_PROVIDER_MODE` and `OPENAI_*` from the environment
+  (never from the database). Defaults to `mock`, so no keys are required.
 
-1. Change the datasource `provider` in `prisma/schema.prisma` from `sqlite` to `postgresql`.
-2. Set `DATABASE_URL` in `.env` to your Postgres/Supabase connection string
-   (see `.env.example`).
-3. Run `npm run db:push` (and optionally `npm run db:seed`).
-
-No application code changes are required — all data access goes through Prisma.
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)** for full Vercel setup and environment
+variables.
 
 ## Testing and CI
 
 Playwright tests live in `tests/e2e` and start the Next.js dev server automatically.
-Run `npm run db:setup` before local E2E runs so SQLite has the latest schema and seed
-data.
+Run `npm run db:setup` before local E2E runs so Postgres has the latest schema and
+seed data.
 
 ```bash
 npm run db:setup
@@ -99,4 +117,4 @@ GitHub Actions runs on pull requests and executes `npm install`, `npm run db:set
 - **Tailwind CSS** with CSS-variable design tokens (light + dark ready)
 - **shadcn-style** UI primitives built on Radix UI
 - **Lucide** icons
-- **Prisma** ORM with **SQLite** (Postgres-ready)
+- **Prisma** ORM with **PostgreSQL** (Supabase / Neon / Prisma Postgres ready)
