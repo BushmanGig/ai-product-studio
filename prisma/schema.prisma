@@ -1,15 +1,22 @@
 // AI Product Studio schema.
 //
-// Local development uses SQLite for zero-config setup. To migrate to
-// Supabase/Postgres later, change `provider` to "postgresql" and point
-// DATABASE_URL at your Postgres connection string (see .env.example).
+// Uses PostgreSQL for both local development and production so the app runs
+// correctly on serverless platforms like Vercel (SQLite cannot be used on
+// Vercel because the serverless filesystem is read-only and ephemeral).
+//
+// Works with any Postgres provider: Supabase, Neon, Prisma Postgres, Railway,
+// a local Postgres, or the bundled docker-compose service. The connection
+// string comes from the DATABASE_URL environment variable (see .env.example).
 
 generator client {
   provider = "prisma-client-js"
+  // "native" covers local dev; "rhel-openssl-3.0.x" covers the Vercel/AWS
+  // Lambda runtime so the query engine is bundled for production.
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
