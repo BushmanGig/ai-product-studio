@@ -47,5 +47,8 @@ run repeatedly.
 - Mutations use Next.js Server Actions in `src/lib/actions.ts` (intake, project, blueprint,
   design DNA, build pack, prompt, build queue, QA, launch, AI settings) with
   `revalidatePath`, so changes appear after the action resolves.
+- UI polish lives mainly in `src/app/globals.css`, shared shell components
+  (`app-sidebar`, `top-bar`, `page-header`, `project-card`, `generate-panel`), and
+  dashboard / Design DNA / Build Queue / Prompt Library pages.
 - GitHub Actions CI is defined in `.github/workflows/ci.yml` and runs install, database
   setup, typecheck, lint, build, and Playwright tests on pull requests.
