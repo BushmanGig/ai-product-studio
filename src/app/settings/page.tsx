@@ -26,6 +26,7 @@ export default async function SettingsPage() {
     <PageShell>
       <PageHeader
         title="Settings"
+        eyebrow="Studio"
         description="Studio preferences, AI provider configuration, workflow stages, and data source."
       />
 

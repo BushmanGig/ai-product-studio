@@ -117,12 +117,22 @@ export const BUSINESS_MODELS = [
 
 export const LAUNCH_STATUSES = ["Planned", "In Progress", "Done", "Blocked"] as const;
 
+export type NavGroup = "workspace" | "create" | "deliver" | "system";
+
 export interface NavItem {
   label: string;
   href: string;
   icon: LucideIcon;
   description: string;
+  group: NavGroup;
 }
+
+export const NAV_GROUPS: { id: NavGroup; label: string }[] = [
+  { id: "workspace", label: "Workspace" },
+  { id: "create", label: "Create" },
+  { id: "deliver", label: "Deliver" },
+  { id: "system", label: "System" },
+];
 
 export const NAV_ITEMS: NavItem[] = [
   {
@@ -130,66 +140,77 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/",
     icon: LayoutDashboard,
     description: "Your studio at a glance",
+    group: "workspace",
   },
   {
     label: "Projects",
     href: "/projects",
     icon: FolderKanban,
     description: "Every idea in motion",
+    group: "workspace",
   },
   {
     label: "Product Blueprint",
     href: "/blueprint",
     icon: FileText,
     description: "PRDs and product specs",
+    group: "create",
   },
   {
     label: "Design DNA",
     href: "/design-dna",
     icon: Palette,
     description: "Brand, tokens and UI kit",
+    group: "create",
   },
   {
     label: "Build Pack",
     href: "/build-pack",
     icon: Package,
     description: "Stack, milestones, agent prompts",
+    group: "create",
   },
   {
     label: "Prompt Library",
     href: "/prompt-library",
     icon: Library,
     description: "Reusable AI prompts",
+    group: "create",
   },
   {
     label: "Build Queue",
     href: "/build-queue",
     icon: ListChecks,
     description: "Sprint and delivery",
+    group: "deliver",
   },
   {
     label: "Review Centre",
     href: "/review-centre",
     icon: MessagesSquare,
     description: "Feedback and approvals",
+    group: "deliver",
   },
   {
     label: "QA Checklist",
     href: "/qa-checklist",
     icon: ShieldCheck,
     description: "Ship with confidence",
+    group: "deliver",
   },
   {
     label: "Launch Plan",
     href: "/launch-plan",
     icon: Rocket,
     description: "Go-to-market steps",
+    group: "deliver",
   },
   {
     label: "Settings",
     href: "/settings",
     icon: Settings,
     description: "Studio preferences",
+    group: "system",
   },
 ];
 

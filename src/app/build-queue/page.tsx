@@ -4,16 +4,26 @@ import { prisma } from "@/lib/prisma";
 import { PageShell, PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { PriorityBadge, StatusBadge } from "@/components/ui/status";
+import { PriorityBadge } from "@/components/ui/status";
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Progress } from "@/components/ui/progress";
 import { BUILD_TASK_STATUSES, PRIORITIES } from "@/lib/constants";
 import { archiveBuildTask, createBuildTask, updateBuildTask } from "@/lib/actions";
+import { timeAgo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+const COLUMN_ACCENTS: Record<string, string> = {
+  Backlog: "bg-slate-400",
+  Ready: "bg-sky-500",
+  "In Progress": "bg-amber-500",
+  Review: "bg-violet-500",
+  Done: "bg-emerald-500",
+};
 
 export default async function BuildQueuePage() {
   const [tasks, projects] = await Promise.all([
@@ -29,15 +39,37 @@ export default async function BuildQueuePage() {
     }),
   ]);
 
+  const doneCount = tasks.filter((task) => task.status === "Done").length;
+  const boardProgress = tasks.length === 0 ? 0 : Math.round((doneCount / tasks.length) * 100);
+
   return (
     <PageShell>
       <PageHeader
+        eyebrow="Delivery"
         title="Build Queue"
-        description="The active sprint across every project. Move work from backlog to done."
+        description="Kanban across every project. Move work from backlog to done with clear priority and estimate metadata."
       />
 
+      <Card className="studio-panel border-border/70">
+        <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-medium">Board progress</p>
+            <p className="text-xs text-muted-foreground">
+              {doneCount} of {tasks.length} tasks complete
+            </p>
+          </div>
+          <div className="w-full max-w-sm space-y-1.5">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Done</span>
+              <span className="font-medium tabular-nums">{boardProgress}%</span>
+            </div>
+            <Progress value={boardProgress} className="h-1.5" />
+          </div>
+        </CardContent>
+      </Card>
+
       {projects.length > 0 && (
-        <Card>
+        <Card className="studio-panel border-border/70">
           <CardHeader>
             <CardTitle>Create build task</CardTitle>
           </CardHeader>
@@ -96,50 +128,53 @@ export default async function BuildQueuePage() {
           description="Add build tasks to a project and they will show up on this board."
         />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           {BUILD_TASK_STATUSES.map((col) => {
             const items = tasks.filter((t) => t.status === col);
             return (
-              <div key={col} className="space-y-3">
+              <div key={col} className="space-y-3 rounded-2xl border border-border/60 bg-card/40 p-3">
                 <div className="flex items-center justify-between px-1">
-                  <h2 className="text-sm font-semibold">{col}</h2>
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${COLUMN_ACCENTS[col]}`} />
+                    <h2 className="text-sm font-semibold">{col}</h2>
+                  </div>
                   <Badge variant="secondary">{items.length}</Badge>
                 </div>
-                <div className="space-y-3">
+                <div className="min-h-[8rem] space-y-3">
                   {items.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-xs text-muted-foreground">
-                      No tasks
+                    <div className="rounded-xl border border-dashed border-border/80 px-4 py-10 text-center text-xs text-muted-foreground">
+                      Drop work here when it is {col.toLowerCase()}.
                     </div>
                   ) : (
                     items.map((t) => (
-                      <Card key={t.id}>
+                      <Card key={t.id} className="hover-lift border-border/70 shadow-soft">
                         <CardContent className="space-y-3 p-4">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-medium leading-snug">
-                              {t.title}
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium leading-snug">{t.title}</p>
+                            <p className="text-[11px] text-muted-foreground">
+                              Updated {timeAgo(t.updatedAt)}
                             </p>
-                            <StatusBadge status={t.status} />
                           </div>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-1.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-1.5">
                               <span
-                                className="h-2.5 w-2.5 rounded-full"
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
                                 style={{ backgroundColor: t.project.color }}
                               />
-                              <span className="text-xs text-muted-foreground">
+                              <span className="truncate text-xs text-muted-foreground">
                                 {t.project.name}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               {t.estimate && (
-                                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
                                   {t.estimate}
                                 </span>
                               )}
                               <PriorityBadge priority={t.priority} />
                             </div>
                           </div>
-                          <details className="rounded-lg border border-border bg-background/60 p-3">
+                          <details className="rounded-xl border border-border/70 bg-background/70 p-3">
                             <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
                               Edit task
                             </summary>
@@ -151,7 +186,11 @@ export default async function BuildQueuePage() {
                               </div>
                               <div className="space-y-2">
                                 <Label htmlFor={`${t.id}-project`}>Project</Label>
-                                <NativeSelect id={`${t.id}-project`} name="projectId" defaultValue={t.projectId}>
+                                <NativeSelect
+                                  id={`${t.id}-project`}
+                                  name="projectId"
+                                  defaultValue={t.projectId}
+                                >
                                   {projects.map((project) => (
                                     <option key={project.id} value={project.id}>
                                       {project.name}
@@ -159,10 +198,14 @@ export default async function BuildQueuePage() {
                                   ))}
                                 </NativeSelect>
                               </div>
-                              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                              <div className="grid gap-3">
                                 <div className="space-y-2">
                                   <Label htmlFor={`${t.id}-status`}>Status</Label>
-                                  <NativeSelect id={`${t.id}-status`} name="status" defaultValue={t.status}>
+                                  <NativeSelect
+                                    id={`${t.id}-status`}
+                                    name="status"
+                                    defaultValue={t.status}
+                                  >
                                     {BUILD_TASK_STATUSES.map((status) => (
                                       <option key={status} value={status}>
                                         {status}
@@ -172,7 +215,11 @@ export default async function BuildQueuePage() {
                                 </div>
                                 <div className="space-y-2">
                                   <Label htmlFor={`${t.id}-priority`}>Priority</Label>
-                                  <NativeSelect id={`${t.id}-priority`} name="priority" defaultValue={t.priority}>
+                                  <NativeSelect
+                                    id={`${t.id}-priority`}
+                                    name="priority"
+                                    defaultValue={t.priority}
+                                  >
                                     {PRIORITIES.map((priority) => (
                                       <option key={priority} value={priority}>
                                         {priority}
@@ -182,7 +229,11 @@ export default async function BuildQueuePage() {
                                 </div>
                                 <div className="space-y-2">
                                   <Label htmlFor={`${t.id}-estimate`}>Estimate</Label>
-                                  <Input id={`${t.id}-estimate`} name="estimate" defaultValue={t.estimate} />
+                                  <Input
+                                    id={`${t.id}-estimate`}
+                                    name="estimate"
+                                    defaultValue={t.estimate}
+                                  />
                                 </div>
                               </div>
                               <Button type="submit" size="sm">

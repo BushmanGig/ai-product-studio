@@ -96,6 +96,7 @@ export default async function BlueprintPage() {
     <PageShell>
       <PageHeader
         title="Product Blueprint"
+        eyebrow="AI workspace"
         description="Generate a living PRD from intake, then edit every section until it is ready to build."
       />
 

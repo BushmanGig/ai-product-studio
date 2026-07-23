@@ -80,6 +80,7 @@ export default async function BuildPackPage() {
     <PageShell>
       <PageHeader
         title="Build Pack"
+        eyebrow="AI workspace"
         description="Generate a stack, architecture, milestone plan, and coding-agent brief — then edit or copy what you need."
       />
 

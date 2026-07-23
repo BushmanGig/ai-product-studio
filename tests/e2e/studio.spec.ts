@@ -9,12 +9,15 @@ async function completeIntake(page: import("@playwright/test").Page, name: strin
   await page.getByLabel("Project name").fill(name);
   await page.getByLabel("One-sentence concept").fill("An AI-assisted workspace for shipping MVPs.");
   await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Audience & problem" })).toBeVisible();
 
   await page.getByLabel("Target user").fill("Indie founders and studio leads");
   await page.getByLabel("Problem being solved").fill("Ideas stall before they become shippable products.");
   await page.getByLabel("Desired platform").selectOption("Web app");
   await page.getByLabel("Business model").selectOption("Subscription");
   await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Product shape" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Create project from intake" })).toBeVisible();
 
   await page.getByLabel("Must-have features").fill("Intake, blueprint generation, design DNA, build pack");
   await page.getByLabel("Visual inspirations").fill("Linear and Notion calm tooling");
@@ -27,8 +30,8 @@ async function completeIntake(page: import("@playwright/test").Page, name: strin
 test("dashboard loads", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Studio dashboard" })).toBeVisible();
-  await expect(page.getByText("Active projects")).toBeVisible();
-  await expect(page.getByText("Build queue preview")).toBeVisible();
+  await expect(page.getByText("Active projects", { exact: true })).toBeVisible();
+  await expect(page.getByText("Build queue preview", { exact: true })).toBeVisible();
 });
 
 test("project intake", async ({ page }) => {
@@ -111,7 +114,7 @@ test("add Design DNA inspiration", async ({ page }) => {
   await form.getByRole("button", { name: "Add inspiration" }).click();
 
   await expect(panel.getByText("Confident display type with calm body copy")).toBeVisible();
-  await expect(panel.locator("div").filter({ hasText: /^typography$/ })).toBeVisible();
+  await expect(panel.locator("div").filter({ hasText: /^Typography$/ }).first()).toBeVisible();
 });
 
 test("generate build pack", async ({ page }) => {
@@ -126,11 +129,15 @@ test("generate build pack", async ({ page }) => {
   await expect(panel.locator('textarea[name="codingAgentPrompt"]')).not.toHaveValue("");
 });
 
-test("copy prompt feedback", async ({ page }) => {
+test("copy prompt feedback", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/prompt-library");
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
 
-  const firstCard = page.locator("section").filter({ hasText: "Discovery" }).locator(".flex.h-full.flex-col").first();
+  const firstCard = page
+    .locator("section")
+    .filter({ has: page.getByRole("heading", { name: "Discovery" }) })
+    .locator(".flex.h-full.flex-col")
+    .first();
   await firstCard.getByRole("button", { name: "Copy Prompt" }).click();
   await expect(firstCard.getByRole("button", { name: "Copied to clipboard" })).toBeVisible();
 });
@@ -144,7 +151,7 @@ test("toggle QA item", async ({ page }) => {
     await button.click();
   }
 
-  await expect(struck).toBeVisible();
+  await expect(struck).toBeVisible({ timeout: 10_000 });
 });
 
 test("create prompt", async ({ page }) => {

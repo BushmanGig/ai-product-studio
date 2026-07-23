@@ -4,6 +4,7 @@ import * as React from "react";
 import { Check, Copy } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function CopyButton({
   value,
@@ -35,9 +36,13 @@ export function CopyButton({
   return (
     <Button
       type="button"
-      variant={variant}
+      variant={copied ? "secondary" : variant}
       size={size}
-      className={className}
+      className={cn(
+        "transition-all",
+        copied && "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+        className
+      )}
       onClick={copy}
       aria-live="polite"
     >

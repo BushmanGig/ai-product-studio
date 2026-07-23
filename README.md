@@ -41,6 +41,15 @@ Lucide icons, and Prisma with SQLite for zero-config local development.
 - Settings shows API key status (`configured` / `missing`) without exposing the key.
 - Postgres/Supabase migration steps live in `docs/POSTGRES.md`.
 
+## Sprint 3.5 premium UI polish
+
+- Dashboard command center with health, AI activity, readiness, and quick actions
+- Grouped sidebar navigation, stronger page rhythm, and mobile nav drawer
+- Richer project cards with counts, status, and last-updated metadata
+- Polished AI generation panels, Design DNA inspiration cards, Build Queue kanban,
+  and Prompt Library search/favourites
+- Subtle motion, focus states, and responsive spacing refinements
+
 ## Getting started
 
 ```bash

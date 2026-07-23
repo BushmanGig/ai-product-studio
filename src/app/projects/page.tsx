@@ -9,21 +9,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const dynamic = "force-dynamic";
 
+const projectCardInclude = {
+  _count: {
+    select: {
+      buildTasks: { where: { archivedAt: null } },
+      qaItems: { where: { archivedAt: null } },
+      prompts: { where: { archivedAt: null } },
+      launchItems: { where: { archivedAt: null } },
+    },
+  },
+} as const;
+
 export default async function ProjectsPage() {
   const [projects, archivedProjects] = await Promise.all([
     prisma.project.findMany({
       where: { archivedAt: null },
       orderBy: { updatedAt: "desc" },
+      include: projectCardInclude,
     }),
     prisma.project.findMany({
       where: { archivedAt: { not: null } },
       orderBy: { updatedAt: "desc" },
+      include: projectCardInclude,
     }),
   ]);
 
   return (
     <PageShell>
       <PageHeader
+        eyebrow="Portfolio"
         title="Projects"
         description="Every product idea in motion, from raw concept to active growth."
         actions={<NewProjectDialog />}
@@ -45,7 +59,7 @@ export default async function ProjectsPage() {
       )}
 
       {archivedProjects.length > 0 && (
-        <Card>
+        <Card className="studio-panel border-border/70">
           <CardHeader>
             <CardTitle>Archived projects</CardTitle>
           </CardHeader>

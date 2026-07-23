@@ -74,22 +74,38 @@ export function ProjectIntakeForm() {
   }
 
   return (
-    <form ref={formRef} action={onSubmit} className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        {STEPS.map((item, index) => (
-          <button
-            key={item.title}
-            type="button"
-            onClick={() => setStep(index)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-              index === step
-                ? "bg-primary text-primary-foreground"
-                : "bg-secondary text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {index + 1}. {item.title}
-          </button>
-        ))}
+    <form ref={formRef} action={onSubmit} className="space-y-7">
+      <div className="space-y-3">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            Step {step + 1} of {STEPS.length}
+          </span>
+          <span>{Math.round(((step + 1) / STEPS.length) * 100)}% complete</span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-300"
+            style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {STEPS.map((item, index) => (
+            <button
+              key={item.title}
+              type="button"
+              onClick={() => setStep(index)}
+              className={`rounded-xl px-3 py-1.5 text-xs font-medium transition ${
+                index === step
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : index < step
+                    ? "bg-primary/10 text-primary"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {index + 1}. {item.title}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-1">
