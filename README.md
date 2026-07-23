@@ -13,27 +13,42 @@ Lucide icons, and Prisma with SQLite for zero-config local development.
 1. **Dashboard** — project cards, a Today panel (next action across all projects), recent
    activity, and a build queue preview.
 2. **Projects** — every idea in motion, with stage, progress, priority and next action.
-3. **Product Blueprint / PRD** — a living PRD scaffold per project.
-4. **Design DNA** — colour palette, type scale, spacing system and per-project brand.
-5. **Prompt Library** — reusable AI prompts for each workflow stage (copy to clipboard).
-6. **Build Queue** — a kanban board of build tasks across projects.
-7. **Review Centre** — design, content and engineering reviews awaiting sign-off.
-8. **QA Checklist** — interactive, per-project checklists that save instantly.
-9. **Launch Plan** — go-to-market timeline per project.
-10. **Settings** — studio preferences, workflow config and data source.
+3. **AI Project Intake** — guided capture of concept, audience, problem, platform, model,
+   must-haves, inspirations, technical preferences, and constraints.
+4. **Product Blueprint / PRD** — generate and edit vision, problem, users, metrics,
+   stories, MVP/future scope, and risks.
+5. **Design DNA** — project-specific principles, tokens, motion, accessibility, and
+   inspiration entries.
+6. **Build Pack** — stack, architecture, entities, routes, milestones, coding-agent
+   prompt, acceptance criteria, and QA checklist.
+7. **Prompt Library** — reusable AI prompts for each workflow stage (copy with feedback).
+8. **Build Queue** — a kanban board of build tasks across projects.
+9. **Review Centre** — design, content and engineering reviews awaiting sign-off.
+10. **QA Checklist** — interactive, per-project checklists that save instantly.
+11. **Launch Plan** — go-to-market timeline per project.
+12. **Settings** — AI provider prefs (mock mode, endpoint, model, temperature) and data source.
 
-## Sprint 2 management flows
+## Sprint 3 AI workspace
 
-- Projects can be created, edited, advanced, archived, or deleted. Edits cover name,
-  description, priority, status, stage, and next best action, with activity logged.
-- Product Blueprint stores editable, project-specific PRD sections for vision, target
-  users, problem statement, success metrics, user stories, feature scope, and risks.
-- Prompt Library supports global or project-attached prompts across Discovery, PRD,
-  Design DNA, Build Pack, QA, and Launch categories.
-- Build Queue tasks can be created, edited, moved from Backlog through Done, prioritized,
-  archived, and connected to projects.
-- QA and Launch items can be created, edited, and archived; QA toggles still save
-  immediately.
+- Guided intake creates the project and persists every answer on `ProjectIntake`.
+- Server-only AI provider abstraction with a mock/demo provider by default and optional
+  OpenAI-compatible env configuration (`OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`,
+  `OPENAI_TEMPERATURE`, `AI_MOCK_MODE`). Keys never enter SQLite or client bundles.
+- Generate Blueprint / Design DNA / Build Pack actions accept a Prompt Library selection,
+  save generated content per project, and keep every section editable/copyable.
+- Design inspirations support source URL, optional image reference, notes, likes, and
+  category (`layout`, `typography`, `colour`, `components`, `motion`, `branding`).
+- Settings shows API key status (`configured` / `missing`) without exposing the key.
+- Postgres/Supabase migration steps live in `docs/POSTGRES.md`.
+
+## Sprint 3.5 premium UI polish
+
+- Dashboard command center with health, AI activity, readiness, and quick actions
+- Grouped sidebar navigation, stronger page rhythm, and mobile nav drawer
+- Richer project cards with counts, status, and last-updated metadata
+- Polished AI generation panels, Design DNA inspiration cards, Build Queue kanban,
+  and Prompt Library search/favourites
+- Subtle motion, focus states, and responsive spacing refinements
 
 ## Getting started
 
@@ -49,6 +64,9 @@ npm run dev
 ```
 
 Then open <http://localhost:3000>.
+
+Optional: set `OPENAI_API_KEY` and disable mock mode in Settings (or `AI_MOCK_MODE=false`)
+to call an OpenAI-compatible endpoint. Without a key, generation stays in mock mode.
 
 ## Scripts
 
@@ -69,12 +87,12 @@ Then open <http://localhost:3000>.
 
 Local development uses **SQLite** (`prisma/dev.db`) via Prisma for a zero-config setup.
 
-To move to **Supabase / Postgres** later:
+To move to **Supabase / Postgres**, follow `docs/POSTGRES.md`:
 
 1. Change the datasource `provider` in `prisma/schema.prisma` from `sqlite` to `postgresql`.
 2. Set `DATABASE_URL` in `.env` to your Postgres/Supabase connection string
    (see `.env.example`).
-3. Run `npm run db:push` (and optionally `npm run db:seed`).
+3. Run `npm run db:setup`.
 
 No application code changes are required — all data access goes through Prisma.
 
@@ -82,15 +100,17 @@ No application code changes are required — all data access goes through Prisma
 
 Playwright tests live in `tests/e2e` and start the Next.js dev server automatically.
 Run `npm run db:setup` before local E2E runs so SQLite has the latest schema and seed
-data.
+data. Install Chromium once if needed:
 
 ```bash
+npx playwright install chromium
 npm run db:setup
 npm run test:e2e
 ```
 
-GitHub Actions runs on pull requests and executes `npm install`, `npm run db:setup`,
-`npm run typecheck`, `npm run lint`, `npm run build`, and Playwright tests.
+GitHub Actions runs on pull requests and executes `npm install`, Playwright browser
+install, `npm run db:setup`, `npm run typecheck`, `npm run lint`, `npm run build`, and
+Playwright tests.
 
 ## Tech stack
 
@@ -100,3 +120,4 @@ GitHub Actions runs on pull requests and executes `npm install`, `npm run db:set
 - **shadcn-style** UI primitives built on Radix UI
 - **Lucide** icons
 - **Prisma** ORM with **SQLite** (Postgres-ready)
+- **Server-only AI provider layer** (mock + OpenAI-compatible)

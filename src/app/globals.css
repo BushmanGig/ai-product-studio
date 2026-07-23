@@ -5,73 +5,90 @@
 @layer base {
   :root {
     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-      Helvetica, Arial, sans-serif;
+      Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
 
-    --background: 240 20% 99%;
-    --foreground: 240 10% 12%;
+    --background: 240 18% 98%;
+    --foreground: 240 16% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 12%;
+    --card-foreground: 240 16% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 12%;
+    --popover-foreground: 240 16% 10%;
 
-    --primary: 245 75% 59%;
+    --primary: 243 72% 56%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 240 12% 96%;
-    --secondary-foreground: 240 10% 20%;
+    --secondary: 240 14% 95%;
+    --secondary-foreground: 240 12% 22%;
 
-    --muted: 240 12% 96%;
-    --muted-foreground: 240 6% 45%;
+    --muted: 240 12% 95%;
+    --muted-foreground: 240 8% 42%;
 
-    --accent: 245 60% 96%;
-    --accent-foreground: 245 75% 45%;
+    --accent: 243 55% 96%;
+    --accent-foreground: 243 72% 42%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 12% 90%;
-    --input: 240 12% 90%;
-    --ring: 245 75% 59%;
+    --success: 152 55% 36%;
+    --success-foreground: 152 40% 96%;
+
+    --warning: 36 90% 42%;
+    --warning-foreground: 36 90% 96%;
+
+    --border: 240 12% 89%;
+    --input: 240 12% 89%;
+    --ring: 243 72% 56%;
 
     --sidebar: 240 20% 99%;
-    --sidebar-foreground: 240 10% 20%;
+    --sidebar-foreground: 240 12% 24%;
+    --sidebar-muted: 240 10% 46%;
 
-    --radius: 0.75rem;
+    --surface-glow: 243 80% 92%;
+    --radius: 0.875rem;
   }
 
   .dark {
-    --background: 240 12% 8%;
+    --background: 240 14% 7%;
     --foreground: 240 10% 96%;
 
-    --card: 240 11% 11%;
+    --card: 240 12% 10%;
     --card-foreground: 240 10% 96%;
 
-    --popover: 240 11% 11%;
+    --popover: 240 12% 10%;
     --popover-foreground: 240 10% 96%;
 
-    --primary: 245 80% 68%;
-    --primary-foreground: 240 12% 8%;
+    --primary: 243 78% 68%;
+    --primary-foreground: 240 14% 8%;
 
-    --secondary: 240 8% 18%;
+    --secondary: 240 10% 16%;
     --secondary-foreground: 240 10% 92%;
 
-    --muted: 240 8% 16%;
-    --muted-foreground: 240 6% 60%;
+    --muted: 240 10% 15%;
+    --muted-foreground: 240 6% 62%;
 
-    --accent: 240 8% 18%;
-    --accent-foreground: 245 80% 80%;
+    --accent: 240 12% 16%;
+    --accent-foreground: 243 78% 78%;
 
     --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 8% 20%;
-    --input: 240 8% 20%;
-    --ring: 245 80% 68%;
+    --success: 152 45% 48%;
+    --success-foreground: 152 40% 10%;
 
-    --sidebar: 240 12% 9%;
+    --warning: 36 80% 52%;
+    --warning-foreground: 36 80% 10%;
+
+    --border: 240 10% 18%;
+    --input: 240 10% 18%;
+    --ring: 243 78% 68%;
+
+    --sidebar: 240 14% 8%;
     --sidebar-foreground: 240 10% 90%;
+    --sidebar-muted: 240 8% 58%;
+
+    --surface-glow: 243 40% 18%;
   }
 }
 
@@ -79,9 +96,54 @@
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-feature-settings: "ss01", "cv02", "cv03", "cv04", "cv11";
+    background-image:
+      radial-gradient(1200px 500px at 8% -10%, hsl(var(--surface-glow) / 0.55), transparent 55%),
+      radial-gradient(900px 420px at 92% 0%, hsl(var(--primary) / 0.06), transparent 50%),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
+    background-attachment: fixed;
+  }
+
+  a {
+    @apply transition-colors;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+  }
+}
+
+@layer components {
+  .studio-panel {
+    @apply rounded-2xl border border-border/80 bg-card/90 shadow-sm backdrop-blur-sm;
+  }
+
+  .studio-kicker {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  .hover-lift {
+    @apply transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-muted;
+  }
+
+  .skeleton::after {
+    content: "";
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/50 to-transparent;
   }
 }
 
@@ -95,5 +157,9 @@
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
+  }
+
+  .text-balance {
+    text-wrap: balance;
   }
 }

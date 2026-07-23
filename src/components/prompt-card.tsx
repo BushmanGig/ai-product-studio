@@ -1,7 +1,6 @@
 "use client";
 
-import * as React from "react";
-import { Archive, Check, Copy, Save, Trash2 } from "lucide-react";
+import { Archive, Save, Star, Trash2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
+import { CopyButton } from "@/components/copy-button";
 import { PROMPT_CATEGORIES } from "@/lib/constants";
 import { archivePrompt, deletePrompt, updatePrompt } from "@/lib/actions";
+import { cn } from "@/lib/utils";
 
 export interface PromptData {
   id: string;
@@ -31,39 +32,50 @@ export interface PromptProjectOption {
 export function PromptCard({
   prompt,
   projects,
+  favourite = false,
+  onToggleFavourite,
+  onCopied,
 }: {
   prompt: PromptData;
   projects: PromptProjectOption[];
+  favourite?: boolean;
+  onToggleFavourite?: () => void;
+  onCopied?: () => void;
 }) {
-  const [copied, setCopied] = React.useState(false);
-
-  async function copy() {
-    try {
-      await navigator.clipboard.writeText(prompt.body);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard may be unavailable; ignore.
-    }
-  }
-
   const tags = prompt.tags.split(",").map((t) => t.trim()).filter(Boolean);
 
   return (
-    <Card className="flex h-full flex-col">
+    <Card className="hover-lift flex h-full flex-col border-border/70 shadow-soft">
       <CardHeader className="space-y-2">
         <div className="flex items-start justify-between gap-2">
-          <CardTitle>{prompt.title}</CardTitle>
-          <Badge variant="outline">
-            {prompt.project?.name ?? "Global"}
-          </Badge>
+          <CardTitle className="text-base leading-snug">{prompt.title}</CardTitle>
+          <div className="flex items-center gap-1">
+            {onToggleFavourite && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                aria-label={favourite ? "Remove favourite" : "Favourite prompt"}
+                onClick={onToggleFavourite}
+                className="h-8 w-8"
+              >
+                <Star
+                  className={cn(
+                    "h-3.5 w-3.5",
+                    favourite ? "fill-amber-400 text-amber-500" : "text-muted-foreground"
+                  )}
+                />
+              </Button>
+            )}
+            <Badge variant="outline">{prompt.project?.name ?? "Global"}</Badge>
+          </div>
         </div>
         <Badge variant="secondary" className="w-fit">
           {prompt.category}
         </Badge>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-3">
-        <pre className="flex-1 whitespace-pre-wrap rounded-lg bg-secondary/60 p-3 text-xs leading-relaxed text-muted-foreground scrollbar-thin">
+        <pre className="flex-1 whitespace-pre-wrap rounded-xl bg-secondary/70 p-3 text-xs leading-relaxed text-muted-foreground scrollbar-thin">
           {prompt.body}
         </pre>
         <div className="flex items-center justify-between gap-2">
@@ -77,16 +89,15 @@ export function PromptCard({
               </span>
             ))}
           </div>
-          <Button variant="outline" size="sm" onClick={copy}>
-            {copied ? (
-              <Check className="h-3.5 w-3.5" />
-            ) : (
-              <Copy className="h-3.5 w-3.5" />
-            )}
-            {copied ? "Copied" : "Copy"}
-          </Button>
+          <div
+            onClick={() => onCopied?.()}
+            onKeyDown={() => undefined}
+            role="presentation"
+          >
+            <CopyButton value={prompt.body} label="Copy Prompt" copiedLabel="Copied to clipboard" />
+          </div>
         </div>
-        <details className="rounded-lg border border-border bg-background/60 p-3">
+        <details className="rounded-xl border border-border/70 bg-background/60 p-3">
           <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
             Edit prompt
           </summary>
@@ -129,7 +140,13 @@ export function PromptCard({
             </div>
             <div className="space-y-2">
               <Label htmlFor={`${prompt.id}-body`}>Prompt body</Label>
-              <Textarea id={`${prompt.id}-body`} name="body" defaultValue={prompt.body} rows={6} required />
+              <Textarea
+                id={`${prompt.id}-body`}
+                name="body"
+                defaultValue={prompt.body}
+                rows={6}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor={`${prompt.id}-tags`}>Tags</Label>

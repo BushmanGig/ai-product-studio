@@ -34,6 +34,10 @@ export default async function ProjectDetailPage({
   const project = await prisma.project.findUnique({
     where: { slug: params.id },
     include: {
+      intake: true,
+      blueprint: true,
+      designDna: true,
+      buildPack: true,
       buildTasks: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } },
       qaItems: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } },
       launchItems: { where: { archivedAt: null }, orderBy: { createdAt: "asc" } },
@@ -93,6 +97,45 @@ export default async function ProjectDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {project.intake && (
+        <Card>
+          <CardHeader>
+            <CardTitle>AI intake answers</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 md:grid-cols-2">
+            {[
+              ["Concept", project.intake.concept],
+              ["Target user", project.intake.targetUser],
+              ["Problem", project.intake.problem],
+              ["Platform", project.intake.platform],
+              ["Business model", project.intake.businessModel],
+              ["Must-have features", project.intake.mustHaveFeatures],
+              ["Visual inspirations", project.intake.visualInspirations],
+              ["Technical preferences", project.intake.technicalPreferences],
+              ["Constraints", project.intake.constraints],
+            ].map(([label, value]) => (
+              <div key={label} className="rounded-lg border border-border px-3 py-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {label}
+                </p>
+                <p className="mt-1 text-sm">{value || "—"}</p>
+              </div>
+            ))}
+            <div className="flex flex-wrap gap-2 md:col-span-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href="/blueprint">Open blueprint</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/design-dna">Open Design DNA</Link>
+              </Button>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/build-pack">Open build pack</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

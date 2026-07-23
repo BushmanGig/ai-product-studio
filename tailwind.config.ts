@@ -56,12 +56,17 @@ const config: Config = {
         sidebar: {
           DEFAULT: "hsl(var(--sidebar))",
           foreground: "hsl(var(--sidebar-foreground))",
+          muted: "hsl(var(--sidebar-muted))",
         },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+      },
+      boxShadow: {
+        soft: "0 1px 2px hsl(240 16% 10% / 0.04), 0 8px 24px hsl(240 16% 10% / 0.04)",
+        lift: "0 8px 28px hsl(243 40% 20% / 0.08)",
       },
       keyframes: {
         "accordion-down": {
@@ -73,14 +78,28 @@ const config: Config = {
           to: { height: "0" },
         },
         "fade-in": {
-          from: { opacity: "0", transform: "translateY(4px)" },
+          from: { opacity: "0", transform: "translateY(6px)" },
           to: { opacity: "1", transform: "translateY(0)" },
+        },
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
+        "pulse-soft": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.55" },
+        },
+        "progress-indeterminate": {
+          "0%": { transform: "translateX(-120%)" },
+          "100%": { transform: "translateX(220%)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "fade-in": "fade-in 0.4s ease-out",
+        "fade-in": "fade-in 0.45s ease-out",
+        shimmer: "shimmer 1.4s infinite",
+        "pulse-soft": "pulse-soft 1.6s ease-in-out infinite",
+        "progress-indeterminate": "progress-indeterminate 1.2s ease-in-out infinite",
       },
     },
   },

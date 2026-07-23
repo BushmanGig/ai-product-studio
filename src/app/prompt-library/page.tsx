@@ -2,7 +2,6 @@ import { Library } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
 import { PageShell, PageHeader } from "@/components/page-header";
-import { PromptCard } from "@/components/prompt-card";
 import { EmptyState } from "@/components/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { PROMPT_CATEGORIES } from "@/lib/constants";
 import { createPrompt } from "@/lib/actions";
+import { PromptLibraryBrowser } from "@/components/prompt-library-browser";
 
 export const dynamic = "force-dynamic";
 
@@ -32,11 +32,12 @@ export default async function PromptLibraryPage() {
   return (
     <PageShell>
       <PageHeader
+        eyebrow="AI workspace"
         title="Prompt Library"
-        description="Reusable, battle-tested AI prompts for every stage of the workflow. Copy, tweak, ship."
+        description="Reusable, battle-tested AI prompts for every stage of the workflow. Search, favourite, copy, ship."
       />
 
-      <Card>
+      <Card className="studio-panel border-border/70">
         <CardHeader>
           <CardTitle>Create prompt</CardTitle>
         </CardHeader>
@@ -97,25 +98,7 @@ export default async function PromptLibraryPage() {
           description="Seed the library or add your own prompts to speed up every stage."
         />
       ) : (
-        PROMPT_CATEGORIES.map((category) => {
-          const categoryPrompts = prompts.filter((prompt) => prompt.category === category);
-          if (categoryPrompts.length === 0) return null;
-          return (
-            <section key={category} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">{category}</h2>
-                <span className="text-xs text-muted-foreground">
-                  {categoryPrompts.length} prompts
-                </span>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {categoryPrompts.map((prompt) => (
-                  <PromptCard key={prompt.id} prompt={prompt} projects={projects} />
-                ))}
-              </div>
-            </section>
-          );
-        })
+        <PromptLibraryBrowser prompts={prompts} projects={projects} />
       )}
     </PageShell>
   );
