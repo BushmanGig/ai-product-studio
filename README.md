@@ -1,102 +1,16 @@
-# AI Product Studio
+# React + Vite
 
-A clean, premium internal web app for taking app ideas from **concept to launch** using a
-repeatable workflow:
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-> Idea → Discovery → PRD → Design DNA → Build Pack → Engineering → QA → Launch → Growth
+Currently, two official plugins are available:
 
-Built with Next.js (App Router), TypeScript, Tailwind CSS, shadcn-style UI components,
-Lucide icons, and Prisma with SQLite for zero-config local development.
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-## Sections
+## React Compiler
 
-1. **Dashboard** — project cards, a Today panel (next action across all projects), recent
-   activity, and a build queue preview.
-2. **Projects** — every idea in motion, with stage, progress, priority and next action.
-3. **Product Blueprint / PRD** — a living PRD scaffold per project.
-4. **Design DNA** — colour palette, type scale, spacing system and per-project brand.
-5. **Prompt Library** — reusable AI prompts for each workflow stage (copy to clipboard).
-6. **Build Queue** — a kanban board of build tasks across projects.
-7. **Review Centre** — design, content and engineering reviews awaiting sign-off.
-8. **QA Checklist** — interactive, per-project checklists that save instantly.
-9. **Launch Plan** — go-to-market timeline per project.
-10. **Settings** — studio preferences, workflow config and data source.
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-## Sprint 2 management flows
+## Expanding the Oxlint configuration
 
-- Projects can be created, edited, advanced, archived, or deleted. Edits cover name,
-  description, priority, status, stage, and next best action, with activity logged.
-- Product Blueprint stores editable, project-specific PRD sections for vision, target
-  users, problem statement, success metrics, user stories, feature scope, and risks.
-- Prompt Library supports global or project-attached prompts across Discovery, PRD,
-  Design DNA, Build Pack, QA, and Launch categories.
-- Build Queue tasks can be created, edited, moved from Backlog through Done, prioritized,
-  archived, and connected to projects.
-- QA and Launch items can be created, edited, and archived; QA toggles still save
-  immediately.
-
-## Getting started
-
-```bash
-# 1. Install dependencies (also generates the Prisma client)
-npm install
-
-# 2. Create the SQLite database and load seed data
-npm run db:setup
-
-# 3. Start the dev server
-npm run dev
-```
-
-Then open <http://localhost:3000>.
-
-## Scripts
-
-| Script              | Description                                   |
-| ------------------- | --------------------------------------------- |
-| `npm run dev`       | Start the Next.js dev server                  |
-| `npm run build`     | Generate Prisma client + production build     |
-| `npm run start`     | Start the production server                   |
-| `npm run lint`      | Run ESLint                                     |
-| `npm run typecheck` | Run the TypeScript compiler (no emit)         |
-| `npm run test:e2e`  | Run Playwright end-to-end tests               |
-| `npm run db:push`   | Push the Prisma schema to the database        |
-| `npm run db:seed`   | Seed the database with example data           |
-| `npm run db:setup`  | Push schema **and** seed in one step          |
-| `npm run db:reset`  | Reset the database and re-seed                 |
-
-## Data layer
-
-Local development uses **SQLite** (`prisma/dev.db`) via Prisma for a zero-config setup.
-
-To move to **Supabase / Postgres** later:
-
-1. Change the datasource `provider` in `prisma/schema.prisma` from `sqlite` to `postgresql`.
-2. Set `DATABASE_URL` in `.env` to your Postgres/Supabase connection string
-   (see `.env.example`).
-3. Run `npm run db:push` (and optionally `npm run db:seed`).
-
-No application code changes are required — all data access goes through Prisma.
-
-## Testing and CI
-
-Playwright tests live in `tests/e2e` and start the Next.js dev server automatically.
-Run `npm run db:setup` before local E2E runs so SQLite has the latest schema and seed
-data.
-
-```bash
-npm run db:setup
-npm run test:e2e
-```
-
-GitHub Actions runs on pull requests and executes `npm install`, `npm run db:setup`,
-`npm run typecheck`, `npm run lint`, `npm run build`, and Playwright tests.
-
-## Tech stack
-
-- **Next.js 14** (App Router, Server Components, Server Actions)
-- **TypeScript**
-- **Tailwind CSS** with CSS-variable design tokens (light + dark ready)
-- **shadcn-style** UI primitives built on Radix UI
-- **Lucide** icons
-- **Prisma** ORM with **SQLite** (Postgres-ready)
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
