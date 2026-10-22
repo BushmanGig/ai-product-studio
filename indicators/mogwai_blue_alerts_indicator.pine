@@ -1,0 +1,437 @@
+//@version=5
+// SPDX-License-Identifier: GPL-3.0-only
+//
+// Independent study of the publicly described Mogwai / Blue Alert stack.
+// This is not the FX Learning invite-only script, and it does not reproduce
+// unpublished source.
+//
+// The TCA engine adapts HalfTrend by Alex Orekhov (everget), GPL-3.0:
+// https://github.com/everget/tradingview-pinescript-indicators
+//
+// Chart-side grading and the higher-timeframe one-shot state machine follow
+// indicators/blue_alert_rules.py. Corrections versus the common write-up:
+//   * B is the second pullback only. Later pullbacks are off unless enabled.
+//   * One closed higher-timeframe setup arms one Blue Alert.
+//   * The alert is cancelled if price breaks that setup's level first.
+//   * A setup on the same bar that arms the level stays a classic signal.
+//   * Higher-timeframe values are the previous closed bar (no forming-bar repaint).
+//
+// TradingView cannot load a second Renko brick size. The EMA mode is only a
+// time-based stand-in for the two-chart Renko filter described in public videos.
+//
+// The 200 EMA angle is ATR-relative (degrees). A near-zero angle is the cold
+// flat range: new setups are skipped and the EMA is drawn gray.
+
+indicator("Blue Alert Study (public rules)", shorttitle="Blue Alert Study", overlay=false, precision=2, max_labels_count=500, max_lines_count=500)
+
+const string G_TREND = "Trend"
+const string G_TCA = "TCA line"
+const string G_MACD = "BD MACD study"
+const string G_GRADE = "Grades"
+const string G_ZZ = "Market structure"
+const string G_HTF = "Blue alerts"
+const string G_DOUBLE = "Double highlight"
+const string G_ANGLE = "EMA angle"
+const string G_OUT = "Swing labels"
+const string G_PANEL = "Live preview"
+const string G_ALERT = "Webhook template"
+
+const color BLUE = #1e56ff
+
+int emaLen = input.int(200, "EMA length", minval=1, group=G_TREND)
+bool showHtfEma = input.bool(true, "Plot higher-timeframe EMA", group=G_TREND)
+bool useColdFilter = input.bool(true, "Block setups when the EMA is flat", group=G_ANGLE, tooltip="Relative angle = atan((EMA - EMA[lookback]) / (ATR * lookback)), in degrees. Inside the flat band the average is the cold range and new setups are skipped.")
+int angleLookback = input.int(5, "Angle lookback", minval=1, group=G_ANGLE)
+int angleAtrLen = input.int(14, "Angle ATR length", minval=1, group=G_ANGLE)
+float flatDegrees = input.float(5.0, "Flat band (degrees)", minval=0.0, step=0.5, group=G_ANGLE)
+bool showSwingLabels = input.bool(true, "Show UP / DOWN", group=G_OUT)
+bool showCounter = input.bool(true, "Show counter-trend flips", group=G_OUT, tooltip="A TCA flip against the 200 EMA. These are orange labels. They do not become Blue Alerts and they do not use a pullback slot.")
+bool showOutcomes = input.bool(true, "Show WIN / LOSS", group=G_OUT, tooltip="Stored ATR stop and target from the signal bar. If one later bar hits both, the stop is the result.")
+int outcomeAtrLen = input.int(14, "Outcome ATR length", minval=1, group=G_OUT)
+float stopAtr = input.float(1.5, "Stop (ATR)", minval=0.1, step=0.1, group=G_OUT)
+float targetAtr = input.float(2.0, "Target (ATR)", minval=0.1, step=0.1, group=G_OUT)
+
+int amplitude = input.int(2, "Amplitude", minval=1, group=G_TCA, tooltip="Swing lookback. This is separate from the channel width. In the public HalfTrend, amplitude defaults to 2.")
+int tcaAtrLen = input.int(10, "ATR length", minval=1, group=G_TCA, tooltip="The pasted TCA setting uses 10. Public HalfTrend uses 100. Change this to 100 to match that publication.")
+float channelDev = input.float(2.0, "Channel deviation", minval=0.1, step=0.5, group=G_TCA, tooltip="HalfTrend multiplies ATR/2 by this value. With deviation 2 and ATR length 10, the band width matches atr(10)/2*2 without tying that width to Amplitude. The deviation draws the channel; the flip line itself trails swing extremes.")
+bool showChannels = input.bool(false, "Show ATR channel", group=G_TCA)
+
+int fastLen = input.int(12, "MACD fast", minval=1, group=G_MACD)
+int slowLen = input.int(26, "MACD slow", minval=1, group=G_MACD)
+int signalLen = input.int(9, "MACD signal", minval=1, group=G_MACD)
+int normLen = input.int(14, "Norm / RSI length", minval=1, group=G_MACD)
+int smoothLen = input.int(2, "Smooth", minval=1, group=G_MACD)
+float osLevel = input.float(20.0, "Oversold", minval=0, maxval=100, group=G_MACD)
+float obLevel = input.float(80.0, "Overbought", minval=0, maxval=100, group=G_MACD)
+int pullbackLookback = input.int(20, "Zone lookback", minval=1, group=G_MACD)
+int confirmBars = input.int(3, "Cross-back window", minval=0, group=G_MACD, tooltip="Bars the MACD cross-back may lead the TCA flip. 0 requires both on the same bar. The commercial blend weights are not published; this window is explicit study behaviour.")
+
+bool showApp = input.bool(true, "Show A++", group=G_GRADE)
+bool showAp = input.bool(true, "Show A+", group=G_GRADE)
+bool showBpp = input.bool(false, "Show B++", group=G_GRADE, tooltip="Off by default, matching the cTrader v2.3 guide. B is the second pullback.")
+bool showBp = input.bool(false, "Show B+", group=G_GRADE)
+bool allowLater = input.bool(false, "Label 3rd+ pullbacks as B", group=G_GRADE, tooltip="Off by default. The public guide defines A as the first pullback and B as the second, and says adding B roughly doubles the signals.")
+
+int zzLen = input.int(25, "ZigZag stiffness", minval=1, group=G_ZZ)
+bool showZigzag = input.bool(true, "Show ZigZag", group=G_ZZ)
+bool showStructure = input.bool(true, "Show structure line on ++", group=G_ZZ)
+
+string htfTf = input.timeframe("60", "Higher timeframe", group=G_HTF, tooltip="Use about 4 to 12 times the chart timeframe. The cTrader guide calls 1m/5m the classic pair and says 5m/15m is too close.")
+string htfMode = input.string("HTF Mogwai level", "Confirmation", options=["HTF Mogwai level", "HTF 200 EMA only"], group=G_HTF, tooltip="Mogwai level: one closed higher-timeframe setup arms one Blue Alert until price breaks that level. EMA only: every current setup in the higher-timeframe EMA direction turns blue. That second mode is a time-based stand-in, not a second Renko series.")
+bool showHtfLabels = input.bool(true, "Show HTF tags", group=G_HTF)
+bool showHtfLevel = input.bool(true, "Show HTF level", group=G_HTF)
+bool showConnect = input.bool(true, "Show connector", group=G_HTF)
+bool paintBar = input.bool(true, "Paint Blue Alert bar", group=G_HTF)
+bool showLabels = input.bool(true, "Show setup labels", group=G_HTF)
+bool mobileShort = input.bool(false, "Short labels", group=G_HTF)
+bool showArrows = input.bool(true, "Show arrows", group=G_HTF)
+
+bool showDouble = input.bool(true, "Yellow highlight", group=G_DOUBLE, tooltip="Present in the public videos. Not a setting in the cTrader v2.3 manual. Distance is measured from the bar where the closed higher-timeframe event becomes visible.")
+int doubleBars = input.int(10, "Double-alert window", minval=0, group=G_DOUBLE)
+
+bool showPanel = input.bool(true, "Show checklist", group=G_PANEL)
+string panelPosOpt = input.string("Top right", "Position", options=["Top right", "Top left", "Bottom right", "Bottom left"], group=G_PANEL, tooltip="TradingView write-ups place the table top-right. The cTrader v2.3 trade window defaults to top-left.")
+string panelSizeOpt = input.string("Small", "Text size", options=["Tiny", "Small", "Normal", "Large", "Huge"], group=G_PANEL)
+
+bool enableWebhook = input.bool(false, "Send webhook template", group=G_ALERT, tooltip="Off until you create an alert on alert() function calls. The template is not an order and not a position size.")
+string licenseId = input.string("", "License id", group=G_ALERT)
+float riskQty = input.float(0.0, "Risk field", minval=0, step=0.01, group=G_ALERT)
+float slPips = input.float(0.0, "SL field", minval=0, step=1, group=G_ALERT)
+float tpPips = input.float(0.0, "TP field", minval=0, step=1, group=G_ALERT)
+
+f_rel_angle(float src, int look, int atrLen) =>
+    float denom = ta.atr(atrLen) * look
+    float rel = na(src[look]) or na(denom) or denom == 0.0 ? 0.0 : (src - src[look]) / denom
+    math.atan(rel) * 180.0 / math.pi
+
+f_unit(float src, int len) =>
+    float hi = ta.highest(src, len)
+    float lo = ta.lowest(src, len)
+    na(src) or na(hi) or na(lo) or hi == lo ? 50.0 : (src - lo) / (hi - lo) * 100.0
+
+f_tf_name(string tf) =>
+    tf == "1" ? "1m" : tf == "5" ? "5m" : tf == "15" ? "15m" : tf == "30" ? "30m" : tf == "60" ? "1h" : tf == "120" ? "2h" : tf == "240" ? "4h" : tf == "D" or tf == "1D" ? "1D" : tf
+
+// HalfTrend state. `trend == 0` is the up regime (everget's convention).
+f_core() =>
+    var int trend = 0
+    var int nextTrend = 0
+    var float maxLowPrice = nz(low[1], low)
+    var float minHighPrice = nz(high[1], high)
+    var float up = 0.0
+    var float down = 0.0
+    var float atrHigh = na
+    var float atrLow = na
+    var int bullCount = 0
+    var int bearCount = 0
+
+    float atr2 = ta.atr(tcaAtrLen) / 2.0
+    float dev = channelDev * atr2
+    float highPrice = high[math.abs(ta.highestbars(amplitude))]
+    float lowPrice = low[math.abs(ta.lowestbars(amplitude))]
+    float highMa = ta.sma(high, amplitude)
+    float lowMa = ta.sma(low, amplitude)
+
+    if nextTrend == 1
+        maxLowPrice := math.max(lowPrice, maxLowPrice)
+        if highMa < maxLowPrice and close < nz(low[1], low)
+            trend := 1
+            nextTrend := 0
+            minHighPrice := highPrice
+    else
+        minHighPrice := math.min(highPrice, minHighPrice)
+        if lowMa > minHighPrice and close > nz(high[1], high)
+            trend := 0
+            nextTrend := 1
+            maxLowPrice := lowPrice
+
+    if trend == 0
+        if not na(trend[1]) and trend[1] != 0
+            up := na(down[1]) ? down : down[1]
+        else
+            up := na(up[1]) ? maxLowPrice : math.max(maxLowPrice, up[1])
+            atrHigh := up + dev
+            atrLow := up - dev
+    else
+        if not na(trend[1]) and trend[1] != 1
+            down := na(up[1]) ? up : up[1]
+        else
+            down := na(down[1]) ? minHighPrice : math.min(minHighPrice, down[1])
+            atrHigh := down + dev
+            atrLow := down - dev
+
+    float tca = trend == 0 ? up : down
+    bool tcaBull = trend == 0
+    bool flipUp = trend == 0 and not na(trend[1]) and trend[1] == 1
+    bool flipDn = trend == 1 and not na(trend[1]) and trend[1] == 0
+
+    float ema = ta.ema(close, emaLen)
+    float macdLine = ta.ema(close, fastLen) - ta.ema(close, slowLen)
+    float rsi = ta.rsi(close, normLen)
+    float blend = (f_unit(macdLine, normLen) + rsi) / 2.0
+    float p1 = ta.sma(blend, smoothLen)
+    float p2 = ta.sma(ta.ema(blend, signalLen), smoothLen)
+
+    bool osNow = p1 <= osLevel or p2 <= osLevel
+    bool obNow = p1 >= obLevel or p2 >= obLevel
+    bool crossUp = ta.crossover(p1, p2) or ta.crossover(p1, osLevel)
+    bool crossDn = ta.crossunder(p1, p2) or ta.crossunder(p1, obLevel)
+    int sinceOs = ta.barssince(osNow)
+    int sinceOb = ta.barssince(obNow)
+    int sinceUp = ta.barssince(crossUp)
+    int sinceDn = ta.barssince(crossDn)
+    bool osRecent = not na(sinceOs) and sinceOs <= pullbackLookback
+    bool obRecent = not na(sinceOb) and sinceOb <= pullbackLookback
+    bool crossUpRecent = not na(sinceUp) and sinceUp <= confirmBars
+    bool crossDnRecent = not na(sinceDn) and sinceDn <= confirmBars
+
+    float angleDeg = f_rel_angle(ema, angleLookback, angleAtrLen)
+    bool cold = useColdFilter and math.abs(angleDeg) < flatDegrees
+    bool buySetup = not na(ema) and not cold and close > ema and flipUp and osRecent and crossUpRecent
+    bool sellSetup = not na(ema) and not cold and close < ema and flipDn and obRecent and crossDnRecent
+
+    int waveCount = 0
+    bool buyOut = false
+    bool sellOut = false
+    if barstate.isconfirmed and (ta.crossover(close, ema) or ta.crossunder(close, ema))
+        bullCount := 0
+        bearCount := 0
+    if barstate.isconfirmed and buySetup
+        bullCount := bullCount + 1
+        waveCount := bullCount
+        buyOut := allowLater or bullCount <= 2
+    if barstate.isconfirmed and sellSetup
+        bearCount := bearCount + 1
+        waveCount := bearCount
+        sellOut := allowLater or bearCount <= 2
+
+    [buyOut, sellOut, waveCount, bullCount, bearCount, ema, tca, tcaBull, flipUp, flipDn, p1, p2, osRecent, obRecent, crossUpRecent, crossDnRecent, atrHigh, atrLow, angleDeg]
+
+f_htf_pack() =>
+    [buyOut, sellOut, waveCount, bullCount, bearCount, ema, tca, tcaBull, flipUp, flipDn, p1, p2, osRecent, obRecent, crossUpRecent, crossDnRecent, atrHigh, atrLow, angleDeg] = f_core()
+    [buyOut[1], sellOut[1], close[1], ema[1], angleDeg[1]]
+
+[buyOut, sellOut, waveCount, bullCount, bearCount, ema, tca, tcaBull, flipUp, flipDn, p1, p2, osRecent, obRecent, crossUpRecent, crossDnRecent, atrHigh, atrLow, angleDeg] = f_core()
+// lookahead_on is safe only because f_htf_pack already returns the previous HTF bar.
+[htfBuy, htfSell, htfPx, htfEma, htfAngle] = request.security(syminfo.tickerid, htfTf, f_htf_pack(), barmerge.gaps_off, barmerge.lookahead_on)
+
+float ph = ta.pivothigh(high, zzLen, zzLen)
+float pl = ta.pivotlow(low, zzLen, zzLen)
+var float lastHigh = na
+var float prevHigh = na
+var int lastHighBar = na
+var float lastLow = na
+var float prevLow = na
+var int lastLowBar = na
+var float zzPrice = na
+var int zzBar = na
+
+if not na(ph)
+    prevHigh := lastHigh
+    lastHigh := ph
+    lastHighBar := bar_index - zzLen
+if not na(pl)
+    prevLow := lastLow
+    lastLow := pl
+    lastLowBar := bar_index - zzLen
+
+if showZigzag and (not na(ph) or not na(pl))
+    int pivotBar = bar_index - zzLen
+    float pivotPrice = not na(ph) ? ph : pl
+    if not na(zzBar)
+        line.new(zzBar, zzPrice, pivotBar, pivotPrice, color=color.new(color.gray, 20), width=1, force_overlay=true)
+    zzPrice := pivotPrice
+    zzBar := pivotBar
+
+plotshape(showZigzag and not na(ph) ? ph : na, title="Swing high", style=shape.circle, location=location.absolute, color=color.red, size=size.tiny, offset=-zzLen, force_overlay=true)
+plotshape(showZigzag and not na(pl) ? pl : na, title="Swing low", style=shape.circle, location=location.absolute, color=color.green, size=size.tiny, offset=-zzLen, force_overlay=true)
+
+bool hh = not na(prevHigh) and not na(lastHigh) and lastHigh > prevHigh
+bool hl = not na(prevLow) and not na(lastLow) and lastLow > prevLow
+bool lh = not na(prevHigh) and not na(lastHigh) and lastHigh < prevHigh
+bool ll = not na(prevLow) and not na(lastLow) and lastLow < prevLow
+bool bullStruct = hh and hl and not na(lastHigh) and close > lastHigh
+bool bearStruct = lh and ll and not na(lastLow) and close < lastLow
+
+var int htfDir = 0
+var float htfLevel = na
+var int htfBar = na
+var line htfRay = na
+var string lastSetup = "None"
+var string lastEntry = "None"
+var int pendDir = 0
+var float pendStop = na
+var float pendTgt = na
+
+bool modeLevel = htfMode == "HTF Mogwai level"
+bool htfBuyEdge = htfBuy and not nz(htfBuy[1], false)
+bool htfSellEdge = htfSell and not nz(htfSell[1], false)
+int originBar = htfBar
+float originLevel = htfLevel
+int originDir = htfDir
+
+bool signal = false
+bool blue = false
+bool isDouble = false
+bool plusPlus = false
+string grade = ""
+
+if not na(htfRay) and originDir != 0
+    line.set_x2(htfRay, bar_index)
+
+if barstate.isconfirmed
+    if buyOut or sellOut
+        plusPlus := (buyOut and bullStruct) or (sellOut and bearStruct)
+        string g = (waveCount == 1 ? "A" : "B") + (plusPlus ? "++" : "+")
+        bool gradeOn = (g == "A++" and showApp) or (g == "A+" and showAp) or (g == "B++" and showBpp) or (g == "B+" and showBp)
+        if gradeOn
+            grade := g
+            signal := true
+            if modeLevel and buyOut and originDir == 1 and not na(originLevel) and close >= originLevel
+                blue := true
+            if modeLevel and sellOut and originDir == -1 and not na(originLevel) and close <= originLevel
+                blue := true
+            if not modeLevel and buyOut and not na(htfEma) and not na(htfPx)
+                blue := htfPx > htfEma
+            if not modeLevel and sellOut and not na(htfEma) and not na(htfPx)
+                blue := htfPx < htfEma
+            if blue and modeLevel and not na(originBar)
+                isDouble := bar_index - originBar <= doubleBars
+                htfDir := 0
+            lastSetup := (blue ? "Blue " : "") + grade + " " + (buyOut ? "BUY" : "SELL")
+            color mark = blue ? BLUE : buyOut ? color.green : color.red
+            string text = (blue ? "BLUE " : "") + grade
+            if not mobileShort
+                text := text + " " + (buyOut ? "BUY" : "SELL")
+            if blue and isDouble and not mobileShort
+                text := text + " DOUBLE"
+            if showLabels
+                label.new(bar_index, buyOut ? low : high, text, style=buyOut ? label.style_label_up : label.style_label_down, color=mark, textcolor=color.white, size=size.small, force_overlay=true)
+            if showStructure and plusPlus and buyOut and not na(lastHighBar)
+                line.new(lastHighBar, lastHigh, bar_index, lastHigh, color=color.yellow, width=2, force_overlay=true)
+            if showStructure and plusPlus and sellOut and not na(lastLowBar)
+                line.new(lastLowBar, lastLow, bar_index, lastLow, color=color.yellow, width=2, force_overlay=true)
+            if showConnect and blue and modeLevel and not na(originBar) and not na(originLevel)
+                line.new(originBar, originLevel, bar_index, buyOut ? low : high, color=BLUE, width=1, style=line.style_dashed, force_overlay=true)
+            lastEntry := lastSetup
+
+    if modeLevel and htfDir == 1 and not na(htfLevel) and close < htfLevel
+        htfDir := 0
+    if modeLevel and htfDir == -1 and not na(htfLevel) and close > htfLevel
+        htfDir := 0
+    if modeLevel and htfBuyEdge and not na(htfPx)
+        htfDir := 1
+        htfLevel := htfPx
+        htfBar := bar_index
+        htfRay := showHtfLevel ? line.new(bar_index, htfPx, bar_index, htfPx, color=color.green, width=2, force_overlay=true) : na
+        if showHtfLabels
+            label.new(bar_index, htfPx, f_tf_name(htfTf) + " MOGR", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.tiny, force_overlay=true)
+    else if modeLevel and htfSellEdge and not na(htfPx)
+        htfDir := -1
+        htfLevel := htfPx
+        htfBar := bar_index
+        htfRay := showHtfLevel ? line.new(bar_index, htfPx, bar_index, htfPx, color=color.red, width=2, force_overlay=true) : na
+        if showHtfLabels
+            label.new(bar_index, htfPx, f_tf_name(htfTf) + " MOGR", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny, force_overlay=true)
+
+plot(p1, "Plot 1", color=color.aqua, linewidth=2)
+plot(p2, "Plot 2", color=color.fuchsia, linewidth=2)
+hline(obLevel, "Overbought", color=color.new(color.red, 40))
+hline(osLevel, "Oversold", color=color.new(color.green, 40))
+hline(50, "Mid", color=color.new(color.gray, 70))
+
+bool coldChart = math.abs(angleDeg) < flatDegrees
+bool counterBuy = barstate.isconfirmed and showCounter and (not useColdFilter or not coldChart) and flipUp and not na(ema) and close < ema
+bool counterSell = barstate.isconfirmed and showCounter and (not useColdFilter or not coldChart) and flipDn and not na(ema) and close > ema
+if counterBuy
+    lastEntry := "COUNTER BUY"
+    if showSwingLabels
+        label.new(bar_index, low, "COUNTER BUY", style=label.style_label_up, color=color.orange, textcolor=color.white, size=size.small, force_overlay=true)
+if counterSell
+    lastEntry := "COUNTER SELL"
+    if showSwingLabels
+        label.new(bar_index, high, "COUNTER SELL", style=label.style_label_down, color=color.orange, textcolor=color.white, size=size.small, force_overlay=true)
+if showSwingLabels and barstate.isconfirmed and flipUp and not signal and not counterBuy
+    label.new(bar_index, low, "UP", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.tiny, force_overlay=true)
+if showSwingLabels and barstate.isconfirmed and flipDn and not signal and not counterSell
+    label.new(bar_index, high, "DOWN", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.tiny, force_overlay=true)
+
+if barstate.isconfirmed and showOutcomes and pendDir != 0
+    string outcome = pendDir == 1 and low <= pendStop ? "LOSS" : pendDir == 1 and high >= pendTgt ? "WIN" : pendDir == -1 and high >= pendStop ? "LOSS" : pendDir == -1 and low <= pendTgt ? "WIN" : ""
+    if outcome != ""
+        bool won = outcome == "WIN"
+        label.new(bar_index, won ? high : low, outcome, style=won ? label.style_label_down : label.style_label_up, color=won ? color.green : color.red, textcolor=color.white, size=size.tiny, force_overlay=true)
+        pendDir := 0
+if barstate.isconfirmed and showOutcomes and (signal or counterBuy or counterSell)
+    float riskAtr = ta.atr(outcomeAtrLen)
+    bool longSide = (signal and buyOut) or counterBuy
+    pendDir := longSide ? 1 : -1
+    pendStop := longSide ? close - riskAtr * stopAtr : close + riskAtr * stopAtr
+    pendTgt := longSide ? close + riskAtr * targetAtr : close - riskAtr * targetAtr
+
+plot(ema, "EMA", color=coldChart ? color.gray : close > ema ? color.green : color.red, linewidth=3, force_overlay=true)
+plot(tca, "TCA", color=tcaBull ? color.green : color.red, linewidth=1, force_overlay=true)
+plot(showChannels ? atrHigh : na, "ATR high", color=color.new(color.red, 40), style=plot.style_circles, linewidth=1, force_overlay=true)
+plot(showChannels ? atrLow : na, "ATR low", color=color.new(color.green, 40), style=plot.style_circles, linewidth=1, force_overlay=true)
+plot(showHtfEma ? htfEma : na, "HTF EMA", color=color.orange, linewidth=2, force_overlay=true)
+
+plotshape(showArrows and signal and buyOut and blue, title="Blue buy arrow", style=shape.triangleup, location=location.belowbar, color=BLUE, size=size.small, force_overlay=true)
+plotshape(showArrows and signal and sellOut and blue, title="Blue sell arrow", style=shape.triangledown, location=location.abovebar, color=BLUE, size=size.small, force_overlay=true)
+plotshape(showArrows and signal and buyOut and not blue, title="Buy arrow", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.tiny, force_overlay=true)
+plotshape(showArrows and signal and sellOut and not blue, title="Sell arrow", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.tiny, force_overlay=true)
+
+barcolor(paintBar and signal and blue ? BLUE : na, title="Blue alert bar")
+bgcolor(showDouble and signal and isDouble ? color.new(color.yellow, 75) : na, title="Double highlight", force_overlay=true)
+
+panelPos = panelPosOpt == "Top right" ? position.top_right : panelPosOpt == "Top left" ? position.top_left : panelPosOpt == "Bottom right" ? position.bottom_right : position.bottom_left
+panelText = panelSizeOpt == "Tiny" ? size.tiny : panelSizeOpt == "Small" ? size.small : panelSizeOpt == "Normal" ? size.normal : panelSizeOpt == "Large" ? size.large : size.huge
+var table panel = na
+if showPanel and na(panel)
+    panel := table.new(panelPos, 2, 10, bgcolor=color.new(color.black, 20), border_width=1, border_color=color.new(color.gray, 40), force_overlay=true)
+    table.merge_cells(panel, 0, 0, 1, 0)
+
+f_cell(int col, int row, string txt, color bg) =>
+    table.cell(panel, col, row, txt, text_color=color.white, bgcolor=bg, text_size=panelText, text_halign=text.align_left)
+
+if showPanel and barstate.islast and not na(panel)
+    string emaBias = na(ema) ? "Warming up" : coldChart ? "FLAT" : angleDeg > 0 ? "BULL" : "BEAR"
+    string htfBias = na(htfAngle) ? "Warming up" : math.abs(htfAngle) < flatDegrees ? "FLAT" : htfAngle > 0 ? "BULL" : "BEAR"
+    string swingTxt = coldChart ? "WAIT" : tcaBull ? "BUY armed" : "SELL armed"
+    string zoneTxt = close > ema and osRecent ? "Oversold in window" : close < ema and obRecent ? "Overbought in window" : "Waiting"
+    string structTxt = bullStruct ? "Bull ++" : bearStruct ? "Bear ++" : "Not confirmed"
+    string htfPriceTxt = str.tostring(htfLevel, format.mintick)
+    string htfTxt = not modeLevel ? htfBias : htfDir == 1 ? "Long @ " + htfPriceTxt : htfDir == -1 ? "Short @ " + htfPriceTxt : "Idle"
+    string angleTxt = str.tostring(angleDeg, "#.#") + " deg"
+    color headBg = color.new(BLUE, 0)
+    color bullBg = color.new(color.green, 30)
+    color bearBg = color.new(color.red, 30)
+    color waitBg = color.new(color.gray, 40)
+    color biasBg = emaBias == "BULL" ? bullBg : emaBias == "BEAR" ? bearBg : waitBg
+    f_cell(0, 0, "Live preview", headBg)
+    f_cell(0, 1, "Local momentum", color.black)
+    f_cell(1, 1, tcaBull ? "UP" : "DOWN", tcaBull ? bullBg : bearBg)
+    f_cell(0, 2, "200 EMA bias", color.black)
+    f_cell(1, 2, emaBias, biasBg)
+    f_cell(0, 3, "Closed HTF bias", color.black)
+    f_cell(1, 3, htfBias, htfBias == "BULL" ? bullBg : htfBias == "BEAR" ? bearBg : waitBg)
+    f_cell(0, 4, "Swing setup", color.black)
+    f_cell(1, 4, swingTxt, coldChart ? waitBg : tcaBull ? bullBg : bearBg)
+    f_cell(0, 5, "MACD zone", color.black)
+    f_cell(1, 5, zoneTxt, zoneTxt == "Waiting" ? waitBg : bullBg)
+    f_cell(0, 6, "Structure", color.black)
+    f_cell(1, 6, structTxt, bullStruct or bearStruct ? bullBg : waitBg)
+    f_cell(0, 7, "HTF state", color.black)
+    f_cell(1, 7, htfTxt, htfDir == 0 and modeLevel ? waitBg : htfDir == -1 ? bearBg : bullBg)
+    f_cell(0, 8, "Last entry signal", color.black)
+    f_cell(1, 8, lastEntry, str.startswith(lastEntry, "Blue") ? headBg : str.startswith(lastEntry, "COUNTER") ? color.orange : color.black)
+    f_cell(0, 9, "EMA angle", color.black)
+    f_cell(1, 9, angleTxt, coldChart ? waitBg : biasBg)
+
+if enableWebhook and barstate.isconfirmed and signal and blue
+    string side = buyOut ? "buy" : "sell"
+    alert(licenseId + "," + side + "," + syminfo.ticker + ",risk=" + str.tostring(riskQty) + ",sl=" + str.tostring(slPips) + ",tp=" + str.tostring(tpPips), alert.freq_once_per_bar_close)
+
+alertcondition(signal and blue and buyOut, "Blue Alert Buy", "Blue Alert study BUY {{ticker}}")
+alertcondition(signal and blue and sellOut, "Blue Alert Sell", "Blue Alert study SELL {{ticker}}")
+alertcondition(signal and not blue and buyOut, "Classic Buy", "Classic study BUY {{ticker}}")
+alertcondition(signal and not blue and sellOut, "Classic Sell", "Classic study SELL {{ticker}}")

@@ -1,0 +1,344 @@
+// This Pine Script® code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// The TCA regime engine adapts HalfTrend by Alex Orekhov (everget), GPL-3.0:
+// https://github.com/everget/tradingview-pinescript-indicators
+// Independent study of publicly described Mogwai / Blue Alert rules. Not the FX Learning invite-only script.
+// Entries are a fixed-quantity study. The webhook risk, SL, and TP fields do not size or place the backtest orders.
+//@version=6
+strategy("Blue Alert Study Strategy (public rules)", shorttitle="Blue Alert Strategy", overlay=false, precision=2, initial_capital=1000000, default_qty_type=strategy.fixed, default_qty_value=1, pyramiding=0, process_orders_on_close=true)
+
+const string G_TREND = "Trend"
+const string G_TCA = "TCA line"
+const string G_MACD = "BD MACD study"
+const string G_GRADE = "Grades"
+const string G_ZZ = "Market structure"
+const string G_HTF = "Blue alerts"
+const string G_DOUBLE = "Double highlight"
+const string G_PANEL = "Checklist"
+const string G_ALERT = "Webhook template"
+const string G_TEST = "Backtest"
+const string G_STYLE = "Style"
+
+int emaLen = input.int(200, "EMA length", minval=1, group=G_TREND, tooltip="Length of the trend EMA.")
+bool showHtfEma = input.bool(true, "Plot higher-timeframe EMA", group=G_TREND, tooltip="Show the last confirmed HTF EMA on price.")
+int amplitude = input.int(2, "Amplitude", minval=1, group=G_TCA, tooltip="HalfTrend swing lookback.")
+int tcaAtrLen = input.int(10, "ATR length", minval=1, group=G_TCA, tooltip="ATR length for the channel.")
+float channelDev = input.float(2.0, "Channel deviation", minval=0.1, step=0.5, group=G_TCA, tooltip="Channel half-width in ATR/2 units.")
+bool showChannels = input.bool(false, "Show ATR channel", group=G_TCA, tooltip="Plot the HalfTrend ATR channel.")
+int fastLen = input.int(12, "MACD fast", minval=1, group=G_MACD, tooltip="Fast EMA length.")
+int slowLen = input.int(26, "MACD slow", minval=1, group=G_MACD, tooltip="Slow EMA length.")
+int signalLen = input.int(9, "MACD signal", minval=1, group=G_MACD, tooltip="Signal smoothing length.")
+int normLen = input.int(14, "Norm / RSI length", minval=1, group=G_MACD, tooltip="Normalization and RSI lookback.")
+int smoothLen = input.int(2, "Smooth", minval=1, group=G_MACD, tooltip="Final oscillator smoothing.")
+float osLevel = input.float(20, "Oversold", minval=0, maxval=100, group=G_MACD, tooltip="Oversold threshold.")
+float obLevel = input.float(80, "Overbought", minval=0, maxval=100, group=G_MACD, tooltip="Overbought threshold.")
+int pullbackLookback = input.int(20, "Zone lookback", minval=1, group=G_MACD, tooltip="How recently the oscillator entered a zone.")
+int confirmBars = input.int(3, "Cross-back window", minval=0, group=G_MACD, tooltip="Maximum bars between oscillator cross and TCA flip.")
+bool showApp = input.bool(true, "Show A++", group=G_GRADE, tooltip="Show first pullback with structure confirmation.")
+bool showAp = input.bool(true, "Show A+", group=G_GRADE, tooltip="Show first pullback without structure confirmation.")
+bool showBpp = input.bool(false, "Show B++", group=G_GRADE, tooltip="Show second pullback with structure confirmation.")
+bool showBp = input.bool(false, "Show B+", group=G_GRADE, tooltip="Show second pullback without structure confirmation.")
+bool allowLater = input.bool(false, "Label 3rd+ pullbacks as B", group=G_GRADE, tooltip="Treat later qualifying setups as B signals.")
+int zzLen = input.int(25, "ZigZag stiffness", minval=1, group=G_ZZ, tooltip="Pivot confirmation bars on each side.")
+bool showZigzag = input.bool(true, "Show ZigZag", group=G_ZZ, tooltip="Draw confirmed swing connections.")
+bool showStructure = input.bool(true, "Show structure line on ++", group=G_ZZ, tooltip="Draw broken swing level for ++ setups.")
+string htfTf = input.timeframe("60", "Higher timeframe", group=G_HTF, tooltip="Must exceed chart timeframe for confirmed HTF signals.")
+string htfMode = input.string("HTF Mogwai level", "Confirmation", options=["HTF Mogwai level", "HTF 200 EMA only"], group=G_HTF, tooltip="One-shot HTF level or directional HTF EMA filter.")
+bool showHtfLabels = input.bool(true, "Show HTF tags", group=G_HTF, tooltip="Label new confirmed HTF events.")
+bool showHtfLevel = input.bool(true, "Show HTF level", group=G_HTF, tooltip="Draw a horizontal ray for the active HTF level.")
+bool showConnect = input.bool(true, "Show connector", group=G_HTF, tooltip="Connect a consumed HTF level to its blue signal.")
+bool paintBar = input.bool(true, "Paint Blue Alert bar", group=G_HTF, tooltip="Color blue signal candles.")
+bool showLabels = input.bool(true, "Show setup labels", group=G_HTF, tooltip="Show graded setups on the price chart.")
+bool mobileShort = input.bool(false, "Short labels", group=G_HTF, tooltip="Omit direction and double text on labels.")
+bool showArrows = input.bool(true, "Show arrows", group=G_HTF, tooltip="Mark each enabled signal with a triangle.")
+bool showDouble = input.bool(true, "Yellow highlight", group=G_DOUBLE, tooltip="Highlight blue setups near their HTF event.")
+int doubleBars = input.int(10, "Double-alert window", minval=0, group=G_DOUBLE, tooltip="Maximum chart bars since HTF event for double highlight.")
+bool showPanel = input.bool(true, "Show checklist", group=G_PANEL, tooltip="Display the current setup checklist.")
+string panelPosOpt = input.string("Top right", "Position", options=["Top right", "Top left", "Bottom right", "Bottom left"], group=G_PANEL, tooltip="Checklist corner.")
+string panelSizeOpt = input.string("Small", "Text size", options=["Tiny", "Small", "Normal", "Large", "Huge"], group=G_PANEL, tooltip="Checklist font size.")
+bool enableWebhook = input.bool(false, "Send webhook template", group=G_ALERT, tooltip="Enable alert() messages; configure your own alert to receive them.")
+string licenseId = input.string("", "License id", group=G_ALERT, tooltip="Text prefix for the webhook template.")
+float riskQty = input.float(0, "Risk field", minval=0, step=0.01, group=G_ALERT, tooltip="Webhook risk field; not position sizing.")
+float slPips = input.float(0, "SL field", minval=0, step=1, group=G_ALERT, tooltip="Webhook SL field; not an order.")
+float tpPips = input.float(0, "TP field", minval=0, step=1, group=G_ALERT, tooltip="Webhook TP field; not an order.")
+string tradeModeInput = input.string("Blue only", "Trade signals", options=["Blue only", "All enabled"], group=G_TEST, tooltip="Blue only trades qualified HTF signals. All enabled also trades classic signals from the visible grades.")
+int stopAtrLenInput = input.int(14, "Stop ATR length", minval=1, group=G_TEST, tooltip="ATR measured on the signal bar for the initial stop distance.")
+float stopAtrMultInput = input.float(1.5, "Stop ATR multiple", minval=0.1, step=0.1, group=G_TEST, tooltip="Stop distance from the signal close, in ATR units.")
+float targetRInput = input.float(2.0, "Target risk multiple", minval=0.1, step=0.1, group=G_TEST, tooltip="Target distance as a multiple of the initial stop distance.")
+color bullColor = input.color(#089981, "Bullish", group=G_STYLE, tooltip="Bullish line and marker color.")
+color bearColor = input.color(#f23645, "Bearish", group=G_STYLE, tooltip="Bearish line and marker color.")
+color blueColor = input.color(#1e56ff, "Blue alert", group=G_STYLE, tooltip="Blue alert highlight color.")
+
+f_unit(float src, int len) =>
+    float hi = ta.highest(src, len)
+    float lo = ta.lowest(src, len)
+    na(src) or na(hi) or na(lo) or hi == lo ? 50.0 : (src - lo) / (hi - lo) * 100.0
+
+f_tf_name(string tf) =>
+    tf == "1" ? "1m" : tf == "5" ? "5m" : tf == "15" ? "15m" : tf == "60" ? "1h" : tf == "240" ? "4h" : tf
+
+f_core() =>
+    var int trend = 0
+    var int nextTrend = 0
+    var float maxLowPrice = na
+    var float minHighPrice = na
+    var float up = na
+    var float down = na
+    var int bullCount = 0
+    var int bearCount = 0
+    maxLowPrice := nz(maxLowPrice, nz(low[1], low))
+    minHighPrice := nz(minHighPrice, nz(high[1], high))
+    float dev = channelDev * ta.atr(tcaAtrLen) / 2.0
+    float highPrice = ta.highest(high, amplitude)
+    float lowPrice = ta.lowest(low, amplitude)
+    float highMa = ta.sma(high, amplitude)
+    float lowMa = ta.sma(low, amplitude)
+    if nextTrend == 1
+        maxLowPrice := math.max(lowPrice, maxLowPrice)
+        if highMa < maxLowPrice and close < nz(low[1], low)
+            trend := 1
+            nextTrend := 0
+            minHighPrice := highPrice
+    else
+        minHighPrice := math.min(highPrice, minHighPrice)
+        if lowMa > minHighPrice and close > nz(high[1], high)
+            trend := 0
+            nextTrend := 1
+            maxLowPrice := lowPrice
+    if trend == 0
+        up := not na(trend[1]) and trend[1] != 0 ? nz(down[1], down) : math.max(maxLowPrice, nz(up[1], maxLowPrice))
+    else
+        down := not na(trend[1]) and trend[1] != 1 ? nz(up[1], up) : math.min(minHighPrice, nz(down[1], minHighPrice))
+    float tca = trend == 0 ? up : down
+    bool flipUp = trend == 0 and not na(trend[1]) and trend[1] == 1
+    bool flipDn = trend == 1 and not na(trend[1]) and trend[1] == 0
+    float ema = ta.ema(close, emaLen)
+    float macdLine = ta.ema(close, fastLen) - ta.ema(close, slowLen)
+    float blend = (f_unit(macdLine, normLen) + ta.rsi(close, normLen)) / 2.0
+    float p1 = ta.sma(blend, smoothLen)
+    float p2 = ta.sma(ta.ema(blend, signalLen), smoothLen)
+    bool osNow = p1 <= osLevel or p2 <= osLevel
+    bool obNow = p1 >= obLevel or p2 >= obLevel
+    bool crossUp = ta.crossover(p1, p2) or ta.crossover(p1, osLevel)
+    bool crossDn = ta.crossunder(p1, p2) or ta.crossunder(p1, obLevel)
+    int sinceOs = ta.barssince(osNow)
+    int sinceOb = ta.barssince(obNow)
+    int sinceUp = ta.barssince(crossUp)
+    int sinceDn = ta.barssince(crossDn)
+    bool osRecent = not na(sinceOs) and sinceOs <= pullbackLookback
+    bool obRecent = not na(sinceOb) and sinceOb <= pullbackLookback
+    bool crossUpRecent = not na(sinceUp) and sinceUp <= confirmBars
+    bool crossDnRecent = not na(sinceDn) and sinceDn <= confirmBars
+    bool buySetup = close > ema and flipUp and osRecent and crossUpRecent
+    bool sellSetup = close < ema and flipDn and obRecent and crossDnRecent
+    bool emaCross = ta.crossover(close, ema) or ta.crossunder(close, ema)
+    int waveCount = 0
+    bool buyOut = false
+    bool sellOut = false
+    if barstate.isconfirmed and emaCross
+        bullCount := 0
+        bearCount := 0
+    if barstate.isconfirmed and buySetup
+        bullCount += 1
+        waveCount := bullCount
+        buyOut := allowLater or bullCount <= 2
+    if barstate.isconfirmed and sellSetup
+        bearCount += 1
+        waveCount := bearCount
+        sellOut := allowLater or bearCount <= 2
+    float upper = tca + dev
+    float lower = tca - dev
+    [buyOut, sellOut, waveCount, bullCount, bearCount, ema, tca, trend == 0, flipUp, flipDn, p1, p2, osRecent, obRecent, crossUpRecent, crossDnRecent, upper, lower]
+
+f_htf_pack() =>
+    [b, s, _w, _bc, _sc, e, _t, _tb, _fu, _fd, _a, _z, _os, _ob, _cu, _cd, _hi, _lo] = f_core()
+    [b[1], s[1], close[1], e[1]]
+
+[buyOut, sellOut, waveCount, bullCount, bearCount, ema, tca, tcaBull, flipUp, flipDn, p1, p2, osRecent, obRecent, crossUpRecent, crossDnRecent, atrHigh, atrLow] = f_core()
+[htfBuy, htfSell, htfPx, htfEma] = request.security(syminfo.tickerid, htfTf, f_htf_pack(), barmerge.gaps_off, barmerge.lookahead_on)
+
+float ph = ta.pivothigh(high, zzLen, zzLen)
+float pl = ta.pivotlow(low, zzLen, zzLen)
+var float lastHigh = na
+var float prevHigh = na
+var int lastHighBar = na
+var float lastLow = na
+var float prevLow = na
+var int lastLowBar = na
+var float zzPrice = na
+var int zzBar = na
+if not na(ph)
+    prevHigh := lastHigh
+    lastHigh := ph
+    lastHighBar := bar_index - zzLen
+if not na(pl)
+    prevLow := lastLow
+    lastLow := pl
+    lastLowBar := bar_index - zzLen
+if showZigzag and (not na(ph) or not na(pl))
+    int pivotBar = bar_index - zzLen
+    float pivotPrice = not na(ph) ? ph : pl
+    if not na(zzBar)
+        line.new(zzBar, zzPrice, pivotBar, pivotPrice, color=color.new(chart.fg_color, 60), force_overlay=true)
+    zzPrice := pivotPrice
+    zzBar := pivotBar
+
+plotshape(showZigzag ? ph : na, title="Swing high", style=shape.circle, location=location.absolute, color=bearColor, size=size.tiny, offset=-zzLen, force_overlay=true)
+plotshape(showZigzag ? pl : na, title="Swing low", style=shape.circle, location=location.absolute, color=bullColor, size=size.tiny, offset=-zzLen, force_overlay=true)
+
+bool bullStruct = not na(prevHigh) and not na(prevLow) and lastHigh > prevHigh and lastLow > prevLow and close > lastHigh
+bool bearStruct = not na(prevHigh) and not na(prevLow) and lastHigh < prevHigh and lastLow < prevLow and close < lastLow
+var int htfDir = 0
+var float htfLevel = na
+var int htfBar = na
+var line htfRay = na
+var string lastSetup = "None"
+bool modeLevel = htfMode == "HTF Mogwai level"
+bool htfBuyEdge = htfBuy and not nz(htfBuy[1], false)
+bool htfSellEdge = htfSell and not nz(htfSell[1], false)
+int originBar = htfBar
+float originLevel = htfLevel
+int originDir = htfDir
+bool signal = false
+bool blue = false
+bool isDouble = false
+bool plusPlus = false
+string grade = ""
+if not na(htfRay) and htfDir != 0
+    line.set_x2(htfRay, bar_index)
+if barstate.isconfirmed
+    bool broken = modeLevel and originDir != 0 and (originDir == 1 ? close < originLevel : close > originLevel)
+    if broken
+        htfDir := 0
+    if buyOut or sellOut
+        plusPlus := buyOut ? bullStruct : bearStruct
+        string g = (waveCount == 1 ? "A" : "B") + (plusPlus ? "++" : "+")
+        bool gradeOn = (g == "A++" and showApp) or (g == "A+" and showAp) or (g == "B++" and showBpp) or (g == "B+" and showBp)
+        if gradeOn
+            grade := g
+            signal := true
+            if modeLevel
+                blue := not broken and ((buyOut and originDir == 1 and close >= originLevel) or (sellOut and originDir == -1 and close <= originLevel))
+            else
+                blue := not na(htfPx) and not na(htfEma) and (buyOut ? htfPx > htfEma : htfPx < htfEma)
+            if blue and modeLevel
+                isDouble := bar_index - originBar <= doubleBars
+                htfDir := 0
+            lastSetup := (blue ? "Blue " : "") + grade + (buyOut ? " BUY" : " SELL")
+            color mark = blue ? blueColor : buyOut ? bullColor : bearColor
+            string labelText = (blue ? "BLUE " : "") + grade
+            if not mobileShort
+                labelText += buyOut ? " BUY" : " SELL"
+            if blue and isDouble and not mobileShort
+                labelText += " DOUBLE"
+            if showLabels
+                label.new(bar_index, buyOut ? low : high, labelText, style=buyOut ? label.style_label_up : label.style_label_down, color=mark, textcolor=chart.fg_color, size=size.small, force_overlay=true)
+            if showStructure and plusPlus and buyOut and not na(lastHighBar)
+                line.new(lastHighBar, lastHigh, bar_index, lastHigh, color=color.yellow, width=2, force_overlay=true)
+            if showStructure and plusPlus and sellOut and not na(lastLowBar)
+                line.new(lastLowBar, lastLow, bar_index, lastLow, color=color.yellow, width=2, force_overlay=true)
+            if showConnect and blue and modeLevel and not na(originBar)
+                line.new(originBar, originLevel, bar_index, buyOut ? low : high, color=blueColor, style=line.style_dashed, force_overlay=true)
+    if modeLevel and htfBuyEdge and not na(htfPx)
+        htfDir := 1
+        htfLevel := htfPx
+        htfBar := bar_index
+        htfRay := showHtfLevel ? line.new(bar_index, htfPx, bar_index, htfPx, color=bullColor, width=2, force_overlay=true) : na
+        if showHtfLabels
+            label.new(bar_index, htfPx, f_tf_name(htfTf) + " MOGR", style=label.style_label_up, color=bullColor, textcolor=chart.fg_color, size=size.tiny, force_overlay=true)
+    else if modeLevel and htfSellEdge and not na(htfPx)
+        htfDir := -1
+        htfLevel := htfPx
+        htfBar := bar_index
+        htfRay := showHtfLevel ? line.new(bar_index, htfPx, bar_index, htfPx, color=bearColor, width=2, force_overlay=true) : na
+        if showHtfLabels
+            label.new(bar_index, htfPx, f_tf_name(htfTf) + " MOGR", style=label.style_label_down, color=bearColor, textcolor=chart.fg_color, size=size.tiny, force_overlay=true)
+
+float stopDistance = ta.atr(stopAtrLenInput) * stopAtrMultInput
+bool tradeSignal = signal and (tradeModeInput == "All enabled" or blue) and not na(stopDistance) and stopDistance > 0
+// Brackets stay on the side that opened them. A reverse must not hand the new stop to the position being closed.
+var float longStop = na
+var float longTarget = na
+var float shortStop = na
+var float shortTarget = na
+bool enterLong = tradeSignal and buyOut and strategy.position_size <= 0
+bool enterShort = tradeSignal and sellOut and strategy.position_size >= 0
+if enterLong
+    longStop := close - stopDistance
+    longTarget := close + stopDistance * targetRInput
+    strategy.entry("Long", strategy.long)
+if enterShort
+    shortStop := close + stopDistance
+    shortTarget := close - stopDistance * targetRInput
+    strategy.entry("Short", strategy.short)
+if not na(longStop) and (enterLong or (strategy.position_size > 0 and not enterShort))
+    strategy.exit("Long exit", "Long", stop=longStop, limit=longTarget)
+if not na(shortStop) and (enterShort or (strategy.position_size < 0 and not enterLong))
+    strategy.exit("Short exit", "Short", stop=shortStop, limit=shortTarget)
+
+plot(p1, "Plot 1", color=color.aqua, linewidth=2)
+plot(p2, "Plot 2", color=color.fuchsia, linewidth=2)
+hline(obLevel, "Overbought", color=color.new(bearColor, 40))
+hline(osLevel, "Oversold", color=color.new(bullColor, 40))
+hline(50, "Mid", color=color.new(#5b9cf6, 70))
+plot(ema, "EMA", color=close > ema ? bullColor : bearColor, linewidth=3, force_overlay=true)
+plot(tca, "TCA", color=tcaBull ? bullColor : bearColor, force_overlay=true)
+plot(showChannels ? atrHigh : na, "ATR high", color=color.new(bearColor, 40), style=plot.style_circles, force_overlay=true)
+plot(showChannels ? atrLow : na, "ATR low", color=color.new(bullColor, 40), style=plot.style_circles, force_overlay=true)
+plot(showHtfEma ? htfEma : na, "HTF EMA", color=color.orange, linewidth=2, force_overlay=true)
+plotshape(showArrows and signal and buyOut and blue, title="Blue buy arrow", style=shape.triangleup, location=location.belowbar, color=blueColor, size=size.small, force_overlay=true)
+plotshape(showArrows and signal and sellOut and blue, title="Blue sell arrow", style=shape.triangledown, location=location.abovebar, color=blueColor, size=size.small, force_overlay=true)
+plotshape(showArrows and signal and buyOut and not blue, title="Buy arrow", style=shape.triangleup, location=location.belowbar, color=bullColor, size=size.tiny, force_overlay=true)
+plotshape(showArrows and signal and sellOut and not blue, title="Sell arrow", style=shape.triangledown, location=location.abovebar, color=bearColor, size=size.tiny, force_overlay=true)
+barcolor(paintBar and signal and blue ? blueColor : na, title="Blue alert bar")
+bgcolor(showDouble and signal and isDouble ? color.new(color.yellow, 75) : na, title="Double highlight", force_overlay=true)
+
+panelPos = panelPosOpt == "Top right" ? position.top_right : panelPosOpt == "Top left" ? position.top_left : panelPosOpt == "Bottom right" ? position.bottom_right : position.bottom_left
+panelText = panelSizeOpt == "Tiny" ? size.tiny : panelSizeOpt == "Small" ? size.small : panelSizeOpt == "Normal" ? size.normal : panelSizeOpt == "Large" ? size.large : size.huge
+var table panel = na
+if showPanel and na(panel)
+    panel := table.new(panelPos, 2, 10, bgcolor=#161616, border_width=1, border_color=#2e2e2e, force_overlay=true)
+    table.merge_cells(panel, 0, 0, 1, 0)
+
+f_cell(int col, int row, string txt, color bg) =>
+    table.cell(panel, col, row, txt, text_color=#dbdbdb, bgcolor=bg, text_size=panelText, text_halign=text.align_left)
+
+if showPanel and barstate.islast and not na(panel)
+    bool bullSide = close > ema
+    int sideCount = bullSide ? bullCount : bearCount
+    string pullbackTxt = sideCount == 0 ? "Yes, next is A" : sideCount == 1 ? "Used, next is B" : "Wave count " + str.tostring(sideCount)
+    string zoneTxt = bullSide and osRecent ? "Oversold in window" : not bullSide and obRecent ? "Overbought in window" : "Waiting"
+    string crossTxt = (bullSide and crossUpRecent) or (not bullSide and crossDnRecent) ? "Crossed back" : "Not yet"
+    string tcaTxt = (tcaBull ? "Green" : "Red") + (flipUp or flipDn ? ", flipped" : "")
+    string structTxt = bullStruct ? "Bull ++" : bearStruct ? "Bear ++" : "Not confirmed"
+    string htfTxt = not modeLevel ? (na(htfEma) or na(htfPx) ? "Warming up" : htfPx > htfEma ? "EMA bullish" : "EMA bearish") : htfDir == 1 ? "Long @ " + str.tostring(htfLevel, format.mintick) : htfDir == -1 ? "Short @ " + str.tostring(htfLevel, format.mintick) : "Idle"
+    color bullBg = color.new(bullColor, 30)
+    color bearBg = color.new(bearColor, 30)
+    color waitBg = #383838
+    f_cell(0, 0, "Signal checklist", blueColor)
+    f_cell(0, 1, "200 EMA", #161616)
+    f_cell(1, 1, na(ema) ? "Warming up" : bullSide ? "Bullish" : close < ema ? "Bearish" : "On the EMA", bullSide ? bullBg : bearBg)
+    f_cell(0, 2, "First pullback", #161616)
+    f_cell(1, 2, pullbackTxt, sideCount == 0 ? bullBg : waitBg)
+    f_cell(0, 3, "MACD zone", #161616)
+    f_cell(1, 3, zoneTxt, zoneTxt == "Waiting" ? waitBg : bullBg)
+    f_cell(0, 4, "Crossed back", #161616)
+    f_cell(1, 4, crossTxt, crossTxt == "Not yet" ? waitBg : bullBg)
+    f_cell(0, 5, "TCA line", #161616)
+    f_cell(1, 5, tcaTxt, tcaBull ? bullBg : bearBg)
+    f_cell(0, 6, "Arrow", #161616)
+    f_cell(1, 6, signal and buyOut ? "Buy" : signal and sellOut ? "Sell" : "None", signal ? bullBg : waitBg)
+    f_cell(0, 7, "Structure", #161616)
+    f_cell(1, 7, structTxt, bullStruct or bearStruct ? bullBg : waitBg)
+    f_cell(0, 8, "HTF state", #161616)
+    f_cell(1, 8, htfTxt, modeLevel and htfDir == 0 ? waitBg : htfDir == -1 ? bearBg : bullBg)
+    f_cell(0, 9, "Last setup", #161616)
+    f_cell(1, 9, lastSetup, str.startswith(lastSetup, "Blue") ? blueColor : #161616)
+
+if enableWebhook and barstate.isconfirmed and signal and blue
+    string side = buyOut ? "buy" : "sell"
+    alert(licenseId + "," + side + "," + syminfo.ticker + ",risk=" + str.tostring(riskQty) + ",sl=" + str.tostring(slPips) + ",tp=" + str.tostring(tpPips), alert.freq_once_per_bar_close)
+
+alertcondition(signal and blue and buyOut, "Blue Alert Buy", "Blue Alert study BUY {{ticker}}")
+alertcondition(signal and blue and sellOut, "Blue Alert Sell", "Blue Alert study SELL {{ticker}}")
+alertcondition(signal and not blue and buyOut, "Classic Buy", "Classic study BUY {{ticker}}")
+alertcondition(signal and not blue and sellOut, "Classic Sell", "Classic study SELL {{ticker}}")
