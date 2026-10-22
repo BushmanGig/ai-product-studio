@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import unittest
 
-from blue_alert_rules import Engine, Rules, ema_bias, relative_angle, resolve_outcome
+from blue_alert_rules import (
+    Engine,
+    Rules,
+    ema_bias,
+    protective_bracket,
+    relative_angle,
+    resolve_outcome,
+    should_trade,
+)
 
 ENABLED = {"A++", "A+", "B++", "B+"}
 A_ONLY = {"A++", "A+"}
@@ -94,6 +102,20 @@ class AngleTests(unittest.TestCase):
         self.assertIsNone(skipped.grade)
         self.assertEqual(skipped.bull_count, 0)
         self.assertEqual(nxt.grade, "A++")
+
+
+class StrategyBracketTests(unittest.TestCase):
+    def test_blue_only_skips_classic_signals(self) -> None:
+        self.assertTrue(should_trade(True, True, "blue"))
+        self.assertFalse(should_trade(True, False, "blue"))
+        self.assertTrue(should_trade(True, False, "all"))
+        self.assertFalse(should_trade(False, True, "all"))
+
+    def test_default_bracket_is_one_and_a_half_atr_and_two_r(self) -> None:
+        stop, target = protective_bracket(100.0, 1, atr=10.0, stop_mult=1.5, target_r=2.0)
+        self.assertEqual((stop, target), (85.0, 130.0))
+        stop, target = protective_bracket(100.0, -1, atr=10.0, stop_mult=1.5, target_r=2.0)
+        self.assertEqual((stop, target), (115.0, 70.0))
 
 
 class OutcomeTests(unittest.TestCase):

@@ -46,6 +46,27 @@ def ema_bias(angle: float, flat_degrees: float) -> str:
     return "BULL" if angle > 0 else "BEAR"
 
 
+def should_trade(signal: bool, blue: bool, mode: str) -> bool:
+    """Strategy entry gate. ``blue`` is Blue-only; ``all`` includes classic grades."""
+    if mode not in ("blue", "all"):
+        raise ValueError(f"unknown trade mode: {mode}")
+    return bool(signal) and (mode == "all" or blue)
+
+
+def protective_bracket(
+    close: float, direction: int, atr: float, stop_mult: float, target_r: float
+) -> tuple[float, float]:
+    """Stop and target from the signal close. Target distance is stop distance times R."""
+    if direction not in (1, -1):
+        raise ValueError("direction must be 1 or -1")
+    if atr <= 0 or stop_mult <= 0 or target_r <= 0:
+        raise ValueError("atr, stop multiple, and target R must be positive")
+    distance = atr * stop_mult
+    if direction == 1:
+        return close - distance, close + distance * target_r
+    return close + distance, close - distance * target_r
+
+
 def resolve_outcome(
     direction: int, stop: float, target: float, low: float, high: float
 ) -> str | None:
