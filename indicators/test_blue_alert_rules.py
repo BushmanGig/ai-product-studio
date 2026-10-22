@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest
 
-from blue_alert_rules import Engine, Rules, ema_bias, relative_angle, resolve_outcome
+from blue_alert_rules import Engine, Rules
 
 ENABLED = {"A++", "A+", "B++", "B+"}
 A_ONLY = {"A++", "A+"}
@@ -75,35 +75,6 @@ class GradeTests(unittest.TestCase):
         engine = Engine()
         graded = bar(engine, 4, 80, sell_setup=True, bear_structure=False)
         self.assertEqual((graded.grade, graded.direction), ("A+", "SELL"))
-
-
-class AngleTests(unittest.TestCase):
-    def test_one_atr_of_rise_over_the_lookback_is_forty_five_degrees(self) -> None:
-        # delta == atr * lookback → atan(1) == 45°.
-        self.assertAlmostEqual(relative_angle(10.0, 2.0, 5), 45.0)
-
-    def test_a_falling_average_is_bear_and_a_flat_one_is_cold(self) -> None:
-        self.assertEqual(ema_bias(relative_angle(-10.0, 2.0, 5), 5.0), "BEAR")
-        self.assertEqual(ema_bias(relative_angle(0.05, 2.0, 5), 5.0), "FLAT")
-        self.assertEqual(ema_bias(relative_angle(10.0, 0.0, 5), 5.0), "FLAT")
-
-    def test_a_cold_bar_does_not_consume_a_pullback_slot(self) -> None:
-        engine = Engine()
-        skipped = bar(engine, 1, 100, buy_setup=True, bull_structure=True, cold=True)
-        nxt = bar(engine, 2, 101, buy_setup=True, bull_structure=True)
-        self.assertIsNone(skipped.grade)
-        self.assertEqual(skipped.bull_count, 0)
-        self.assertEqual(nxt.grade, "A++")
-
-
-class OutcomeTests(unittest.TestCase):
-    def test_stop_wins_when_the_same_bar_touches_both(self) -> None:
-        self.assertEqual(resolve_outcome(1, stop=99.0, target=102.0, low=98.0, high=103.0), "LOSS")
-        self.assertEqual(resolve_outcome(-1, stop=103.0, target=98.0, low=97.0, high=104.0), "LOSS")
-
-    def test_target_and_open_trade(self) -> None:
-        self.assertEqual(resolve_outcome(1, stop=99.0, target=102.0, low=100.0, high=102.5), "WIN")
-        self.assertIsNone(resolve_outcome(1, stop=99.0, target=102.0, low=100.0, high=101.0))
 
 
 class HigherTimeframeTests(unittest.TestCase):

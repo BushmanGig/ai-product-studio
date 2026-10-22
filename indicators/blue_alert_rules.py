@@ -11,7 +11,6 @@ FX Learning / Mogwai invite-only source.
 
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass, field
 
 
@@ -22,47 +21,6 @@ class Rules:
     # "level" is the published Blue Alert engine.
     # "ema" is the separate Renko-style higher-timeframe EMA filter.
     mode: str = "level"
-
-
-def relative_angle(delta: float, atr: float, lookback: int) -> float:
-    """ATR-relative slope of a moving average, in degrees.
-
-    ``delta / (atr * lookback)`` keeps the angle comparable across price
-    scales. A result near zero is a flat average: the cold, blurry range.
-    """
-    if lookback <= 0:
-        raise ValueError("lookback must be positive")
-    denom = atr * lookback
-    if denom == 0:
-        return 0.0
-    return math.atan(delta / denom) * 180.0 / math.pi
-
-
-def ema_bias(angle: float, flat_degrees: float) -> str:
-    if flat_degrees < 0:
-        raise ValueError("flat band must be >= 0")
-    if abs(angle) < flat_degrees:
-        return "FLAT"
-    return "BULL" if angle > 0 else "BEAR"
-
-
-def resolve_outcome(
-    direction: int, stop: float, target: float, low: float, high: float
-) -> str | None:
-    """Resolve a stored stop and target. A bar that hits both is a loss."""
-    if direction == 1:
-        if low <= stop:
-            return "LOSS"
-        if high >= target:
-            return "WIN"
-    elif direction == -1:
-        if high >= stop:
-            return "LOSS"
-        if low <= target:
-            return "WIN"
-    else:
-        raise ValueError("direction must be 1 or -1")
-    return None
 
 
 @dataclass
@@ -101,13 +59,9 @@ class Engine:
         htf_price: float | None,
         htf_ema_bull: bool | None,
         enabled: set[str],
-        cold: bool = False,
     ) -> BarResult:
         if self.rules.mode not in ("level", "ema"):
             raise ValueError(f"unknown mode: {self.rules.mode}")
-        if cold:
-            buy_setup = False
-            sell_setup = False
         if buy_setup and sell_setup:
             raise ValueError("buy and sell setups are mutually exclusive")
 
